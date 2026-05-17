@@ -1,4 +1,4 @@
-# If OpenClaw wouldn't have been made by engineers it would look like this
+# If OpenClaw hadn't been built by engineers, it would look like this
 
 A friendlier chat UI for [OpenClaw](https://openclaw.ai) gateways.
 
