@@ -1,22 +1,33 @@
-import { useState, type FormEvent } from "react";
-import { Monitor, Moon, Plug, Sun, Info } from "lucide-react";
+import { useEffect, useState, type FormEvent } from "react";
+import { Bot, Info, KeyRound, Monitor, Moon, Plug, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme, type Theme } from "@/lib/theme";
+import type { GatewayWs } from "@/lib/gateway-ws";
 
-type SettingsSection = "connection" | "appearance" | "about";
+export type SettingsSection =
+  | "connection"
+  | "agents"
+  | "providers"
+  | "appearance"
+  | "about";
 
 export function Settings({
+  gw,
+  initialSection = "connection",
   initialUrl,
   initialToken,
   onSave,
   onCancel,
 }: {
+  gw: GatewayWs | null;
+  initialSection?: SettingsSection;
   initialUrl: string;
   initialToken: string;
   onSave: (url: string, token: string, persistToken: boolean) => void;
   onCancel: () => void;
 }) {
-  const [section, setSection] = useState<SettingsSection>("connection");
+  const [section, setSection] = useState<SettingsSection>(initialSection);
+  useEffect(() => setSection(initialSection), [initialSection]);
 
   return (
     <div className="flex h-[480px] -mx-6 -mb-6 -mt-2 border-t">
@@ -30,6 +41,8 @@ export function Settings({
             onCancel={onCancel}
           />
         )}
+        {section === "agents" && <AgentsSection gw={gw} />}
+        {section === "providers" && <ProvidersSection gw={gw} />}
         {section === "appearance" && <AppearanceSection />}
         {section === "about" && <AboutSection />}
       </div>
@@ -46,6 +59,8 @@ function SettingsSidebar({
 }) {
   const items: { id: SettingsSection; label: string; icon: React.ReactNode }[] = [
     { id: "connection", label: "Connection", icon: <Plug size={14} /> },
+    { id: "agents", label: "Agents", icon: <Bot size={14} /> },
+    { id: "providers", label: "Model Providers", icon: <KeyRound size={14} /> },
     { id: "appearance", label: "Appearance", icon: <Monitor size={14} /> },
     { id: "about", label: "About", icon: <Info size={14} /> },
   ];
@@ -174,6 +189,161 @@ function ConnectionSection({
         </button>
       </div>
     </form>
+  );
+}
+
+interface AgentEntry {
+  id?: string;
+  name?: string;
+  model?: { primary?: string };
+  thinking?: string;
+}
+
+function AgentsSection({ gw }: { gw: GatewayWs | null }) {
+  const [agents, setAgents] = useState<AgentEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!gw) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    gw.request<{ agents?: AgentEntry[] }>("agents.list", {})
+      .then((res) => {
+        if (cancelled) return;
+        setAgents(res?.agents ?? []);
+        setLoading(false);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : String(err));
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [gw]);
+
+  return (
+    <div className="flex flex-col gap-5">
+      <SectionHeader
+        title="Agents"
+        description="Registered agents and the model each uses. Read-only — manage agents with `openclaw agents` in your terminal."
+      />
+      {loading && <p className="text-sm text-muted-foreground">Loading…</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      {!loading && !error && agents.length === 0 && (
+        <p className="text-sm text-muted-foreground">No agents reported.</p>
+      )}
+      {!loading && agents.length > 0 && (
+        <ul className="flex flex-col gap-2">
+          {agents.map((a, i) => (
+            <li
+              key={a.id ?? i}
+              className="border rounded-lg px-3 py-2.5 flex flex-col gap-1"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-medium text-sm">{a.name ?? a.id ?? "agent"}</span>
+                {a.thinking && (
+                  <span className="text-[11px] text-muted-foreground">
+                    thinking: {a.thinking}
+                  </span>
+                )}
+              </div>
+              {a.id && a.id !== (a.name ?? "") && (
+                <code className="text-xs text-muted-foreground">{a.id}</code>
+              )}
+              {a.model?.primary && (
+                <code className="text-xs text-muted-foreground">
+                  model: {a.model.primary}
+                </code>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+interface AuthProfilesResponse {
+  raw?: string;
+}
+
+function ProvidersSection({ gw }: { gw: GatewayWs | null }) {
+  const [providers, setProviders] = useState<{ id: string; provider: string; mode?: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!gw) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    gw.request<AuthProfilesResponse>("config.get", {})
+      .then((res) => {
+        if (cancelled) return;
+        try {
+          const cfg = res.raw ? JSON.parse(res.raw) : {};
+          const profiles = (cfg?.auth?.profiles ?? {}) as Record<
+            string,
+            { provider?: string; mode?: string }
+          >;
+          const list = Object.entries(profiles).map(([id, v]) => ({
+            id,
+            provider: v.provider ?? id.split(":")[0] ?? "",
+            mode: v.mode,
+          }));
+          setProviders(list);
+        } catch {
+          setProviders([]);
+        }
+        setLoading(false);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : String(err));
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [gw]);
+
+  return (
+    <div className="flex flex-col gap-5">
+      <SectionHeader
+        title="Model Providers"
+        description="Auth profiles known to your gateway. Read-only — run `openclaw configure` or `openclaw models auth …` to add or rotate keys."
+      />
+      {loading && <p className="text-sm text-muted-foreground">Loading…</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      {!loading && !error && providers.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          No provider profiles configured yet. Run{" "}
+          <code className="px-1 bg-muted rounded">openclaw configure</code>{" "}
+          to add one.
+        </p>
+      )}
+      {!loading && providers.length > 0 && (
+        <ul className="flex flex-col gap-2">
+          {providers.map((p) => (
+            <li
+              key={p.id}
+              className="border rounded-lg px-3 py-2.5 flex items-center justify-between gap-2"
+            >
+              <span className="font-medium text-sm capitalize">{p.provider}</span>
+              <code className="text-[11px] text-muted-foreground">
+                {p.mode ?? "configured"} · {p.id}
+              </code>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 

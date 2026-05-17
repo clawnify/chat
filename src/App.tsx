@@ -8,7 +8,7 @@ import {
   saveToken,
   type DetectedGateway,
 } from "@/lib/config";
-import { Settings } from "@/components/Settings";
+import { Settings, type SettingsSection } from "@/components/Settings";
 import { Chat } from "@/components/Chat";
 import { DetectedGatewayCard } from "@/components/DetectedGatewayCard";
 import { SessionsSidebar } from "@/components/SessionsSidebar";
@@ -19,6 +19,11 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  parseSessionFromPath,
+  pushSessionPath,
+  replaceSessionPath,
+} from "@/lib/session-route";
 
 type ConnState =
   | { kind: "idle" }
@@ -33,10 +38,36 @@ export function App() {
   const [token, setToken] = useState<string | null>(null);
   const [conn, setConn] = useState<ConnState>({ kind: "idle" });
   const [showSettings, setShowSettings] = useState(false);
+  const [settingsSection, setSettingsSection] =
+    useState<SettingsSection>("connection");
   const [detected, setDetected] = useState<DetectedGateway | null>(null);
   const [detectionResolved, setDetectionResolved] = useState(false);
-  const [sessionKey, setSessionKey] = useState<string>(DEFAULT_SESSION_KEY);
+  const [sessionKey, setSessionKey] = useState<string>(
+    () => parseSessionFromPath(window.location.pathname) ?? DEFAULT_SESSION_KEY,
+  );
   const gwRef = useRef<GatewayWs | null>(null);
+
+  // Sync sessionKey ↔ URL path. pushState on programmatic changes,
+  // popstate on browser back/forward so the chat follows.
+  useEffect(() => {
+    pushSessionPath(sessionKey);
+  }, [sessionKey]);
+  useEffect(() => {
+    const onPop = () => {
+      const fromPath = parseSessionFromPath(window.location.pathname);
+      setSessionKey(fromPath ?? DEFAULT_SESSION_KEY);
+    };
+    window.addEventListener("popstate", onPop);
+    // Make sure the initial path matches whatever sessionKey we picked.
+    replaceSessionPath(sessionKey);
+    return () => window.removeEventListener("popstate", onPop);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function openSettingsAt(section: SettingsSection) {
+    setSettingsSection(section);
+    setShowSettings(true);
+  }
 
   useEffect(() => {
     const cfg = bootstrapConfig();
@@ -113,6 +144,8 @@ export function App() {
     return (
       <div className="h-full flex flex-col mx-auto max-w-2xl">
         <Settings
+          gw={null}
+          initialSection="connection"
           initialUrl={gatewayUrl ?? ""}
           initialToken={token ?? ""}
           onSave={handleSave}
@@ -159,7 +192,7 @@ export function App() {
         activeKey={sessionKey}
         onSelect={setSessionKey}
         onNew={handleNewSession}
-        onOpenSettings={() => setShowSettings(true)}
+        onOpenSettings={openSettingsAt}
         connState={conn.kind}
       />
       <Chat gw={gwRef.current} sessionKey={sessionKey} />
@@ -173,6 +206,8 @@ export function App() {
             </DialogDescription>
           </DialogHeader>
           <Settings
+            gw={gwRef.current}
+            initialSection={settingsSection}
             initialUrl={gatewayUrl ?? ""}
             initialToken={token ?? ""}
             onSave={handleSave}

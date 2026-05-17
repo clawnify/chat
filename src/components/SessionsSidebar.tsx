@@ -1,7 +1,21 @@
 import { useEffect, useState } from "react";
-import { Plus, Settings as SettingsIcon } from "lucide-react";
+import {
+  Bot,
+  Info,
+  KeyRound,
+  Monitor,
+  Plug,
+  Plus,
+  Settings as SettingsIcon,
+} from "lucide-react";
 import type { GatewayWs } from "@/lib/gateway-ws";
 import { cn } from "@/lib/utils";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import type { SettingsSection } from "@/components/Settings";
 
 export type ConnPillState = "idle" | "connecting" | "connected" | "error";
 
@@ -42,9 +56,10 @@ export function SessionsSidebar({
   activeKey: string;
   onSelect: (key: string) => void;
   onNew: () => void;
-  onOpenSettings: () => void;
+  onOpenSettings: (section: SettingsSection) => void;
   connState: ConnPillState;
 }) {
+  const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
   const [sessions, setSessions] = useState<SessionEntry[]>([]);
 
   useEffect(() => {
@@ -97,19 +112,54 @@ export function SessionsSidebar({
       </nav>
 
       <div className="border-t px-3 py-2.5 flex items-center justify-between gap-2">
-        <button
-          type="button"
-          onClick={onOpenSettings}
-          title="Settings"
-          className="h-7 w-7 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-        >
-          <SettingsIcon size={14} />
-        </button>
-        <ConnPill state={connState} onClick={onOpenSettings} />
+        <Popover open={settingsMenuOpen} onOpenChange={setSettingsMenuOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              title="Settings"
+              className="h-7 w-7 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            >
+              <SettingsIcon size={14} />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="start"
+            side="top"
+            className="w-56 p-1"
+          >
+            {SETTINGS_MENU.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  onOpenSettings(item.id);
+                  setSettingsMenuOpen(false);
+                }}
+                className="w-full text-left flex items-center gap-2 px-2.5 py-1.5 rounded-md text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              >
+                {item.icon}
+                {item.label}
+              </button>
+            ))}
+          </PopoverContent>
+        </Popover>
+        <ConnPill state={connState} onClick={() => onOpenSettings("connection")} />
       </div>
     </aside>
   );
 }
+
+const SETTINGS_MENU: {
+  id: SettingsSection;
+  label: string;
+  icon: React.ReactNode;
+}[] = [
+  { id: "connection", label: "Connection", icon: <Plug size={14} /> },
+  { id: "agents", label: "Agents", icon: <Bot size={14} /> },
+  { id: "providers", label: "Model Providers", icon: <KeyRound size={14} /> },
+  { id: "appearance", label: "Appearance", icon: <Monitor size={14} /> },
+  { id: "about", label: "About", icon: <Info size={14} /> },
+];
 
 function ConnPill({
   state,
