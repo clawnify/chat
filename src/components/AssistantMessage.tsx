@@ -40,7 +40,7 @@ export function AssistantMessage({
         />
       )}
       {content ? (
-        <div className="markdown text-sm">
+        <div className="prose prose-sm dark:prose-invert max-w-none">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
         </div>
       ) : (
@@ -87,7 +87,7 @@ function ThinkingBlock({
         )}
       </button>
       {open && (
-        <div className="border-l-2 border-border/70 pl-4 ml-1 text-sm leading-relaxed markdown text-muted-foreground">
+        <div className="border-l-2 border-border/70 pl-4 ml-1 prose prose-sm prose-neutral dark:prose-invert max-w-none text-muted-foreground prose-headings:text-foreground prose-strong:text-foreground">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
         </div>
       )}
