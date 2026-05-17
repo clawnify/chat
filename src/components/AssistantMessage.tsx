@@ -95,16 +95,29 @@ function ThinkingBlock({
   );
 }
 
-/** First sentence-ish snippet of the thinking, truncated to a single line. */
+/**
+ * First sentence-ish snippet of the thinking, with markdown syntax stripped
+ * (the preview row is rendered as plain text, not through ReactMarkdown).
+ */
 function summarizePreview(text: string): string {
   const trimmed = text.trim();
   if (!trimmed) return "Thinking…";
-  // Prefer first sentence; fall back to first line if no period.
   const sentenceEnd = trimmed.match(/^[^.!?\n]{0,180}[.!?]/);
   let preview = sentenceEnd ? sentenceEnd[0] : trimmed.split(/\n/)[0];
-  preview = preview.trim();
+  preview = stripInlineMarkdown(preview).trim();
   if (preview.length > 120) preview = preview.slice(0, 117) + "…";
   return preview;
+}
+
+function stripInlineMarkdown(s: string): string {
+  return s
+    .replace(/^\s*#{1,6}\s+/, "") // leading "### "
+    .replace(/\*\*(.*?)\*\*/g, "$1") // **bold**
+    .replace(/__(.*?)__/g, "$1") // __bold__
+    .replace(/(^|\W)\*(\S[^*]*?\S?)\*(?=\W|$)/g, "$1$2") // *italic*
+    .replace(/(^|\W)_(\S[^_]*?\S?)_(?=\W|$)/g, "$1$2") // _italic_
+    .replace(/`([^`]+)`/g, "$1") // `code`
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1"); // [text](url)
 }
 
 function formatElapsed(seconds: number): string {

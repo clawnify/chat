@@ -61,7 +61,7 @@ export function Chat({
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
-  }, [gw]);
+  }, [gw, SESSION_KEY]);
 
   const resolveApproval = useCallback(
     async (approvalId: string, decision: "allow-once" | "allow-always" | "deny") => {
@@ -101,6 +101,17 @@ export function Chat({
       cancelled = true;
     };
   }, [gw, SESSION_KEY]);
+
+  // Reset local state when the active session changes — otherwise the
+  // previous session's transcript and live stream leak into the new tab.
+  useEffect(() => {
+    setMessages([]);
+    setPendingApprovals([]);
+    setChatStream("");
+    setError(null);
+    currentRunIdRef.current = null;
+    setSending(false);
+  }, [SESSION_KEY]);
 
   useEffect(() => {
     let cancelled = false;
