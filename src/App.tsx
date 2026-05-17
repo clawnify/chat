@@ -165,11 +165,11 @@ export function App() {
       <Chat gw={gwRef.current} sessionKey={sessionKey} />
 
       <Dialog open={showSettings} onOpenChange={setShowSettings}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
+        <DialogContent className="max-w-3xl p-0 gap-0 overflow-hidden">
+          <DialogHeader className="px-6 pt-5 pb-3">
             <DialogTitle>Settings</DialogTitle>
-            <DialogDescription>
-              Connect to a different OpenClaw gateway.
+            <DialogDescription className="sr-only">
+              Configure the connection, appearance, and other preferences.
             </DialogDescription>
           </DialogHeader>
           <Settings
