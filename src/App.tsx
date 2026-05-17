@@ -98,14 +98,12 @@ export function App() {
   }
 
   function handleNewSession() {
-    const gw = gwRef.current;
-    if (!gw) return;
-    // sessions.reset clears the current session's transcript and starts the
-    // startup sequence again. Full multi-session creation needs upstream
-    // sessions.create semantics — deferred.
-    gw.request("sessions.reset", { key: sessionKey, reason: "new" }).catch(() => {
-      // Best effort.
-    });
+    // Generate a fresh sessionKey under the main agent. OpenClaw materializes
+    // the session lazily on the first chat.send to a new key (see
+    // docs/openclaw/gateway/PROTOCOL.md and the scope-key convention).
+    const shortId = crypto.randomUUID().slice(0, 8);
+    const newKey = `agent:main:scratch:${shortId}`;
+    setSessionKey(newKey);
   }
 
   // Setup-time settings (no gateway yet) — render Settings inline since
