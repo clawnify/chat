@@ -1,5 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { App } from "./App";
 import "./index.css";
 
@@ -8,6 +9,8 @@ if (!container) throw new Error("#root not found");
 
 createRoot(container).render(
   <StrictMode>
-    <App />
+    <TooltipProvider delayDuration={300}>
+      <App />
+    </TooltipProvider>
   </StrictMode>,
 );
