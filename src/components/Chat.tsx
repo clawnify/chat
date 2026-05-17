@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { GatewayEvent, GatewayWs } from "../lib/gateway-ws";
-import { parseHistory, type Message } from "../lib/protocol";
+import {
+  parseApprovalFromToolResult,
+  parseHistory,
+  type Message,
+  type PendingApproval,
+} from "../lib/protocol";
 import { ActionGroup } from "./ActionGroup";
+import { ApprovalCard } from "./ApprovalCard";
 
 /**
  * Stage 1 of the rich port: history fetch + four-role rendering using the new
@@ -11,6 +17,7 @@ import { ActionGroup } from "./ActionGroup";
  */
 export function Chat({ gw }: { gw: GatewayWs }) {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,11 +27,46 @@ export function Chat({ gw }: { gw: GatewayWs }) {
   const fetchHistory = useCallback(async () => {
     try {
       const payload = await gw.request("chat.history", { limit: 100 });
-      setMessages(parseHistory(payload));
+      const parsed = parseHistory(payload);
+      setMessages(parsed);
+
+      // Hydrate exec approvals from tool results — canonical path per memory.
+      // Plugin approvals come exclusively via WS events (toolCallId on event).
+      setPendingApprovals((prev) => {
+        const existing = new Set(prev.map((a) => a.approvalId));
+        const fromHistory: PendingApproval[] = [];
+        for (const msg of parsed) {
+          if (msg.toolName === "exec" && msg.toolResult) {
+            const p = parseApprovalFromToolResult(msg.toolResult, msg.toolCallId);
+            if (p && !existing.has(p.approvalId)) fromHistory.push(p);
+          }
+        }
+        return fromHistory.length === 0 ? prev : [...prev, ...fromHistory];
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
   }, [gw]);
+
+  const resolveApproval = useCallback(
+    async (approvalId: string, decision: "allow-once" | "allow-always" | "deny") => {
+      // Plugin approval ids carry a "plugin:" prefix; everything else is exec.
+      const method = approvalId.startsWith("plugin:")
+        ? "plugin.approval.resolve"
+        : "exec.approval.resolve";
+      try {
+        await gw.request(method, { id: approvalId, decision });
+        setPendingApprovals((prev) =>
+          prev.map((a) =>
+            a.approvalId === approvalId ? { ...a, status: decision } : a,
+          ),
+        );
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    },
+    [gw],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -32,6 +74,80 @@ export function Chat({ gw }: { gw: GatewayWs }) {
 
     const handler = (evt: GatewayEvent) => {
       if (cancelled) return;
+      const p = evt.payload as Record<string, unknown> | undefined;
+
+      if (evt.event === "exec.approval.requested" && p) {
+        const req = p.request as Record<string, unknown> | undefined;
+        const approvalId = (p.id as string) || (p.approvalId as string);
+        if (!approvalId) return;
+        setPendingApprovals((prev) =>
+          prev.some((a) => a.approvalId === approvalId)
+            ? prev
+            : [
+                ...prev,
+                {
+                  approvalId,
+                  kind: "exec",
+                  command:
+                    (req?.command as string) ||
+                    (p.command as string) ||
+                    "unknown command",
+                  cwd: (req?.cwd as string) || (p.cwd as string | undefined),
+                  agentId:
+                    (req?.agentId as string) || (p.agentId as string | undefined),
+                  host: (req?.host as string) || (p.host as string | undefined),
+                  status: "pending",
+                  timestamp: (p.createdAtMs as number) || Date.now(),
+                  expiresAt: p.expiresAtMs as number | undefined,
+                },
+              ],
+        );
+        return;
+      }
+
+      if (evt.event === "plugin.approval.requested" && p) {
+        const req = p.request as Record<string, unknown> | undefined;
+        const approvalId = (p.id as string) || (p.approvalId as string);
+        if (!approvalId) return;
+        setPendingApprovals((prev) =>
+          prev.some((a) => a.approvalId === approvalId)
+            ? prev
+            : [
+                ...prev,
+                {
+                  approvalId,
+                  kind: "plugin",
+                  title: req?.title as string | undefined,
+                  description: req?.description as string | undefined,
+                  toolName: req?.toolName as string | undefined,
+                  pluginId: req?.pluginId as string | undefined,
+                  toolCallId: req?.toolCallId as string | undefined,
+                  status: "pending",
+                  timestamp: (p.createdAtMs as number) || Date.now(),
+                  expiresAt: p.expiresAtMs as number | undefined,
+                },
+              ],
+        );
+        return;
+      }
+
+      if (
+        (evt.event === "exec.approval.resolved" ||
+          evt.event === "plugin.approval.resolved") &&
+        p
+      ) {
+        const approvalId = (p.approvalId as string) || (p.id as string);
+        const decision = p.decision as string;
+        if (approvalId && decision) {
+          setPendingApprovals((prev) =>
+            prev.map((a) =>
+              a.approvalId === approvalId ? { ...a, status: decision } : a,
+            ),
+          );
+        }
+        return;
+      }
+
       if (evt.event === "chat") {
         applyChatEvent(evt.payload as ChatEventPayload | undefined);
       }
@@ -150,6 +266,18 @@ export function Chat({ gw }: { gw: GatewayWs }) {
           ),
         )}
       </div>
+
+      {pendingApprovals.length > 0 && (
+        <div className="approvals">
+          {pendingApprovals.map((a) => (
+            <ApprovalCard
+              key={a.approvalId}
+              approval={a}
+              onResolve={resolveApproval}
+            />
+          ))}
+        </div>
+      )}
 
       {error && <div className="chat-error">{error}</div>}
 
