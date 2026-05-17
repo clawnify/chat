@@ -35,7 +35,7 @@ function FilePill({ action }: { action: Message }) {
       <TooltipTrigger asChild>
         <div
           className={cn(
-            "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border bg-muted/50 text-xs cursor-default",
+            "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border bg-muted/50 text-xs cursor-default",
             isError
               ? "border-destructive/40 text-destructive bg-destructive/5"
               : "text-muted-foreground border-border/60",
