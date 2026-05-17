@@ -294,3 +294,52 @@ pre {
   display: flex;
   justify-content: flex-end;
 }
+
+/* --- detected gateway --- */
+.detected {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+}
+.detected-card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 24px 28px;
+  max-width: 560px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.detected-card h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.detected-card dl {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 8px 16px;
+  margin: 0;
+}
+.detected-card dt {
+  color: var(--text-dim);
+  font-size: 13px;
+}
+.detected-card dd {
+  margin: 0;
+  font-size: 13px;
+}
+.detected-card dd .ok {
+  color: var(--success);
+}
+.detected-card dd .warn {
+  color: var(--warn);
+}
+.detected-note {
+  color: var(--text-dim);
+  font-size: 13px;
+  margin: 0;
+}

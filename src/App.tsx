@@ -1,8 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { GatewayWs, PairingRequiredError } from "./lib/gateway-ws";
-import { bootstrapConfig, saveGatewayUrl, saveToken, clearToken } from "./lib/config";
+import {
+  bootstrapConfig,
+  clearToken,
+  detectLocalGateway,
+  saveGatewayUrl,
+  saveToken,
+  type DetectedGateway,
+} from "./lib/config";
 import { Settings } from "./components/Settings";
 import { Chat } from "./components/Chat";
+import { DetectedGatewayCard } from "./components/DetectedGatewayCard";
 
 type ConnState =
   | { kind: "idle" }
@@ -15,14 +23,32 @@ export function App() {
   const [token, setToken] = useState<string | null>(null);
   const [conn, setConn] = useState<ConnState>({ kind: "idle" });
   const [showSettings, setShowSettings] = useState(false);
+  const [detected, setDetected] = useState<DetectedGateway | null>(null);
+  const [detectionResolved, setDetectionResolved] = useState(false);
   const gwRef = useRef<GatewayWs | null>(null);
 
-  // Bootstrap on mount
+  // Bootstrap on mount: load saved config + offer a local-gateway detection
+  // when no saved config exists. Detection is an explicit consent step — we
+  // never auto-connect.
   useEffect(() => {
     const cfg = bootstrapConfig();
     setGatewayUrl(cfg.gatewayUrl);
     setToken(cfg.token);
-    if (!cfg.gatewayUrl || !cfg.token) setShowSettings(true);
+
+    if (cfg.gatewayUrl && cfg.token) {
+      setDetectionResolved(true);
+      return;
+    }
+
+    detectLocalGateway().then((res) => {
+      if (res && res.detected && res.hasToken && res.token) {
+        setDetected(res);
+      } else {
+        // Nothing usable to offer — fall through to manual settings.
+        setShowSettings(true);
+      }
+      setDetectionResolved(true);
+    });
   }, []);
 
   // Connect when we have both
@@ -85,6 +111,27 @@ export function App() {
           onSave={handleSave}
           onCancel={() => setShowSettings(false)}
         />
+      ) : detected && !gatewayUrl && !token ? (
+        <DetectedGatewayCard
+          detected={detected}
+          onConnect={(url, tok) => {
+            // Honor the no-silent-config rule: don't write to localStorage
+            // when the source of truth is the user's openclaw.json. Re-detect
+            // on every reload.
+            setDetected(null);
+            setGatewayUrl(url);
+            setToken(tok);
+            setConn({ kind: "idle" });
+          }}
+          onUseSettings={() => {
+            setDetected(null);
+            setShowSettings(true);
+          }}
+        />
+      ) : !detectionResolved ? (
+        <main className="empty">
+          <h2>Looking for a local gateway…</h2>
+        </main>
       ) : conn.kind === "connected" && gwRef.current ? (
         <Chat gw={gwRef.current} />
       ) : (

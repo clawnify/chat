@@ -73,3 +73,36 @@ export function clearConfig() {
   localStorage.removeItem(GATEWAY_URL_KEY);
   localStorage.removeItem(TOKEN_KEY);
 }
+
+export interface DetectedGateway {
+  detected: true;
+  url: string;
+  hasToken: boolean;
+  token: string | null;
+  source: string;
+}
+
+export interface UndetectedGateway {
+  detected: false;
+  reason: string;
+  source?: string;
+}
+
+/**
+ * Ask the CLI host (bin/clawnify-chat.mjs) whether a local OpenClaw gateway is
+ * configured. Loopback-only on the CLI side; the UI never sees a token unless
+ * the user opened the page from the same machine.
+ *
+ * Returns null when the CLI host isn't reachable — i.e. when the UI is being
+ * served from `pnpm dev` (Vite) instead of the production CLI.
+ */
+export async function detectLocalGateway(): Promise<DetectedGateway | UndetectedGateway | null> {
+  try {
+    const res = await fetch("/__local/gateway", { method: "GET" });
+    if (!res.ok) return null;
+    const data = (await res.json()) as DetectedGateway | UndetectedGateway;
+    return data;
+  } catch {
+    return null;
+  }
+}
