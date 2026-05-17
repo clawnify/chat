@@ -17,7 +17,7 @@ export function AssistantMessage({
   const [elapsed, setElapsed] = useState(0);
   const startedAtRef = useRef<number | null>(null);
 
-  const stillThinking = streaming && !content;
+  const stillThinking = Boolean(streaming && !content);
   useEffect(() => {
     if (!stillThinking) return;
     if (startedAtRef.current == null) startedAtRef.current = Date.now();
