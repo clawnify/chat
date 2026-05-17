@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Launchd agent for @clawnify/chat — auto-starts the local static server
+  on a Mac mini or any macOS host running OpenClaw.
+
+  Install:
+    cp packaging/launchd/com.clawnify.chat.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.clawnify.chat.plist
+
+  Stop / remove:
+    launchctl unload ~/Library/LaunchAgents/com.clawnify.chat.plist
+
+  Logs:
+    tail -f /tmp/clawnify-chat.{out,err}.log
+
+  Adjust the ProgramArguments path if `npx` lives somewhere other than
+  /opt/homebrew/bin (Apple silicon) — /usr/local/bin on Intel Macs.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.clawnify.chat</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/npx</string>
+    <string>--yes</string>
+    <string>@clawnify/chat</string>
+  </array>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PORT</key>
+    <string>5174</string>
+    <key>HOST</key>
+    <string>127.0.0.1</string>
+  </dict>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>/tmp/clawnify-chat.out.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/tmp/clawnify-chat.err.log</string>
+</dict>
+</plist>

@@ -1,7 +1,6 @@
 {
   "name": "@clawnify/chat",
   "version": "0.0.1",
-  "private": true,
   "type": "module",
   "description": "Open-source chat UI for OpenClaw gateways.",
   "license": "MIT",
@@ -10,11 +9,25 @@
     "url": "https://github.com/clawnify/chat.git"
   },
   "homepage": "https://github.com/clawnify/chat#readme",
+  "bugs": "https://github.com/clawnify/chat/issues",
+  "keywords": ["openclaw", "chat", "agent", "ai"],
+  "bin": {
+    "clawnify-chat": "bin/clawnify-chat.mjs"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "packaging",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -b --noEmit"
+    "typecheck": "tsc -b --noEmit",
+    "start": "node bin/clawnify-chat.mjs",
+    "prepublishOnly": "pnpm typecheck && pnpm build"
   },
   "dependencies": {
     "react": "^19.0.0",

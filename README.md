@@ -14,26 +14,46 @@ gateway administration to the upstream Control UI.
 ## Quick start
 
 ```bash
-pnpm install
-pnpm dev
+npx @clawnify/chat
 ```
 
-Open `http://localhost:5173` and fill in the settings:
+That's it. The command starts a local static server on
+`http://127.0.0.1:5174/`. Open it in your browser, fill in the gateway URL +
+token, and you're connected.
 
 - **Gateway URL** — `ws://127.0.0.1:18789` for a local gateway, or
   `wss://magicdns.example.ts.net` over Tailscale Serve.
 - **Gateway token** — the shared secret from your gateway's
   `~/.openclaw/openclaw.json` under `gateway.auth.token`.
 
-You can also pre-fill via the URL (matches upstream Control UI's dev mode):
+You can pre-fill via the URL:
 
 ```
-http://localhost:5173/?gatewayUrl=ws://127.0.0.1:18789#token=<your-token>
+http://127.0.0.1:5174/?gatewayUrl=ws://127.0.0.1:18789#token=<your-token>
 ```
 
 - `gatewayUrl` is persisted to `localStorage` after first load.
-- `token` lives in the URL **fragment** (never sent to the server) and is
+- `token` lives in the URL **fragment** (never sent to any server) and is
   kept in memory only unless you tick "Remember token in this browser".
+
+### Or from source
+
+```bash
+pnpm install
+pnpm dev
+```
+
+Opens a Vite dev server at `http://localhost:5173`.
+
+## Run as a service
+
+Auto-start `@clawnify/chat` on boot alongside the OpenClaw gateway. Unit
+templates ship with the repo:
+
+- **Linux** (systemd) — see [packaging/systemd/](packaging/systemd/clawnify-chat.service)
+- **macOS / Mac mini** (launchd) — see [packaging/launchd/](packaging/launchd/com.clawnify.chat.plist)
+
+Setup instructions: [packaging/README.md](packaging/README.md).
 
 ## Gateway-side configuration
 
@@ -67,12 +87,6 @@ openclaw devices approve <requestId>
 
 Once approved, the device is remembered until you revoke it.
 
-## Deployment
-
-The build output (`pnpm build` → `dist/`) is plain static files. Drop them
-anywhere — Cloudflare Pages, Netlify, Vercel, an S3 bucket, a Caddy server on
-your Mac mini. The gateway URL and token are configured at runtime, not at
-build time.
 
 ## Roadmap
 
