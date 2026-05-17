@@ -412,17 +412,17 @@ export function AboutDialog({
         <dl className="grid grid-cols-[120px_1fr] gap-y-2 gap-x-4 text-sm">
           <dt className="text-muted-foreground">Package</dt>
           <dd>
-            <code className="px-1.5 py-0.5 rounded bg-muted">@clawnify/chat</code>
+            <code className="px-1.5 py-0.5 rounded bg-muted">@clawnify/agent-control-ui</code>
           </dd>
           <dt className="text-muted-foreground">Source</dt>
           <dd>
             <a
-              href="https://github.com/clawnify/chat"
+              href="https://github.com/clawnify/agent-control-ui"
               target="_blank"
               rel="noreferrer"
               className="text-foreground underline underline-offset-2"
             >
-              github.com/clawnify/chat
+              github.com/clawnify/agent-control-ui
             </a>
           </dd>
           <dt className="text-muted-foreground">Protocol</dt>
@@ -441,7 +441,7 @@ export function AboutDialog({
           <dd>MIT</dd>
         </dl>
         <p className="text-xs text-muted-foreground">
-          clawnify/chat is an independent client for the OpenClaw protocol.
+          agent-control-ui is an independent client for the OpenClaw protocol.
           Built and maintained by{" "}
           <a
             href="https://clawnify.com"

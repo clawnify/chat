@@ -2,7 +2,7 @@
  * Pure protocol parsers + state machine for OpenClaw gateway WS payloads.
  *
  * Nothing in this module touches React or the DOM. Eventually a candidate for
- * extraction into `@clawnify/chat-core`. Ported from chat-panel.tsx and kept
+ * extraction into `@clawnify/agent-control-ui-core`. Ported from chat-panel.tsx and kept
  * deliberately close to the upstream parsing semantics — see the
  * "parseApprovalFromToolResult" regex comment in particular.
  */

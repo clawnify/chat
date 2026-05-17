@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 export type Theme = "system" | "light" | "dark";
 
-const STORAGE_KEY = "clawnify-chat-theme";
+const STORAGE_KEY = "agent-control-ui-theme";
 
 function isDark(theme: Theme): boolean {
   if (theme === "dark") return true;

@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Launchd agent for @clawnify/chat — auto-starts the local static server
-  on a Mac mini or any macOS host running OpenClaw.
+  Launchd agent for @clawnify/agent-control-ui — auto-starts the local
+  static server on a Mac mini or any macOS host running OpenClaw.
 
   Install:
-    cp packaging/launchd/com.clawnify.chat.plist ~/Library/LaunchAgents/
-    launchctl load ~/Library/LaunchAgents/com.clawnify.chat.plist
+    cp packaging/launchd/com.clawnify.agent-control-ui.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.clawnify.agent-control-ui.plist
 
   Stop / remove:
-    launchctl unload ~/Library/LaunchAgents/com.clawnify.chat.plist
+    launchctl unload ~/Library/LaunchAgents/com.clawnify.agent-control-ui.plist
 
   Logs:
-    tail -f /tmp/clawnify-chat.{out,err}.log
+    tail -f /tmp/agent-control-ui.{out,err}.log
 
   Adjust the ProgramArguments path if `npx` lives somewhere other than
   /opt/homebrew/bin (Apple silicon) — /usr/local/bin on Intel Macs.
@@ -20,13 +20,13 @@
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>com.clawnify.chat</string>
+  <string>com.clawnify.agent-control-ui</string>
 
   <key>ProgramArguments</key>
   <array>
     <string>/opt/homebrew/bin/npx</string>
     <string>--yes</string>
-    <string>@clawnify/chat</string>
+    <string>@clawnify/agent-control-ui</string>
   </array>
 
   <key>EnvironmentVariables</key>
@@ -44,9 +44,9 @@
   <true/>
 
   <key>StandardOutPath</key>
-  <string>/tmp/clawnify-chat.out.log</string>
+  <string>/tmp/agent-control-ui.out.log</string>
 
   <key>StandardErrorPath</key>
-  <string>/tmp/clawnify-chat.err.log</string>
+  <string>/tmp/agent-control-ui.err.log</string>
 </dict>
 </plist>

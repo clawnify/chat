@@ -9,8 +9,8 @@
  *   only unless the user opts to persist it.
  */
 
-const GATEWAY_URL_KEY = "clawnify-chat-gateway-url";
-const TOKEN_KEY = "clawnify-chat-token";
+const GATEWAY_URL_KEY = "agent-control-ui-gateway-url";
+const TOKEN_KEY = "agent-control-ui-token";
 
 export interface ChatConfig {
   gatewayUrl: string | null;
@@ -89,7 +89,7 @@ export interface UndetectedGateway {
 }
 
 /**
- * Ask the CLI host (bin/clawnify-chat.mjs) whether a local OpenClaw gateway is
+ * Ask the CLI host (bin/agent-control-ui.mjs) whether a local OpenClaw gateway is
  * configured. Loopback-only on the CLI side; the UI never sees a token unless
  * the user opened the page from the same machine.
  *

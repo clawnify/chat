@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Minimal static server for the @clawnify/chat bundle.
+// Minimal static server for the @clawnify/agent-control-ui bundle.
 // Uses Node built-ins only so the published package has zero runtime deps.
 
 import { createServer } from "node:http";
@@ -19,9 +19,9 @@ for (let i = 0; i < args.length; i++) {
   if (a === "--port" || a === "-p") port = Number(args[++i]);
   else if (a === "--host" || a === "-h") host = args[++i];
   else if (a === "--help") {
-    console.log(`@clawnify/chat — local static server
+    console.log(`@clawnify/agent-control-ui — local static server
 
-Usage: clawnify-chat [--port 5174] [--host 127.0.0.1]
+Usage: agent-control-ui [--port 5174] [--host 127.0.0.1]
 
 Once running, open the printed URL in your browser. Configure the gateway
 URL + token in the settings screen, or pre-fill via the URL:
@@ -159,6 +159,6 @@ async function detectLocalGateway() {
 
 server.listen(port, host, () => {
   const url = `http://${host}:${port}/`;
-  console.log(`@clawnify/chat ready at ${url}`);
+  console.log(`@clawnify/agent-control-ui ready at ${url}`);
   console.log("ctrl+c to stop");
 });

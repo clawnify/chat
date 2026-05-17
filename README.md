@@ -16,12 +16,23 @@ gateway administration to the upstream Control UI.
 ## Quick start
 
 ```bash
-npx @clawnify/chat
+npx @clawnify/agent-control-ui
 ```
 
 That's it. The command starts a local static server on
 `http://127.0.0.1:5174/`. Open it in your browser, fill in the gateway URL +
 token, and you're connected.
+
+<img width="577" alt="Auto-detected local OpenClaw gateway" src="https://github.com/user-attachments/assets/4e2c45ec-a700-43ad-ba0e-73ae469d624f" />
+
+When run locally, the UI reads `~/.openclaw/openclaw.json` over a
+loopback-only HTTP endpoint and offers a one-click connect. The token
+stays in memory unless you explicitly persist it.
+
+If no local gateway is found (or you want to point at a remote one),
+the Connection dialog accepts manual settings:
+
+<img width="577" alt="Manual connection settings" src="https://github.com/user-attachments/assets/87c76d50-982f-4c4e-887d-6f05bee22335" />
 
 - **Gateway URL** — `ws://127.0.0.1:18789` for a local gateway, or
   `wss://magicdns.example.ts.net` over Tailscale Serve.
@@ -49,11 +60,11 @@ Opens a Vite dev server at `http://localhost:5173`.
 
 ## Run as a service
 
-Auto-start `@clawnify/chat` on boot alongside the OpenClaw gateway. Unit
+Auto-start `@clawnify/agent-control-ui` on boot alongside the OpenClaw gateway. Unit
 templates ship with the repo:
 
-- **Linux** (systemd) — see [packaging/systemd/](packaging/systemd/clawnify-chat.service)
-- **macOS / Mac mini** (launchd) — see [packaging/launchd/](packaging/launchd/com.clawnify.chat.plist)
+- **Linux** (systemd) — see [packaging/systemd/](packaging/systemd/agent-control-ui.service)
+- **macOS / Mac mini** (launchd) — see [packaging/launchd/](packaging/launchd/com.clawnify.agent-control-ui.plist)
 
 Setup instructions: [packaging/README.md](packaging/README.md).
 

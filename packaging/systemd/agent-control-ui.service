@@ -1,21 +1,22 @@
-# Systemd unit for @clawnify/chat — runs the local static server on boot.
+# Systemd unit for @clawnify/agent-control-ui — runs the local static
+# server on boot.
 #
 # Install:
-#   sudo cp packaging/systemd/clawnify-chat.service /etc/systemd/system/
+#   sudo cp packaging/systemd/agent-control-ui.service /etc/systemd/system/
 #   sudo systemctl daemon-reload
-#   sudo systemctl enable --now clawnify-chat.service
+#   sudo systemctl enable --now agent-control-ui.service
 #
 # Status:
-#   systemctl status clawnify-chat
-#   journalctl -u clawnify-chat -f
+#   systemctl status agent-control-ui
+#   journalctl -u agent-control-ui -f
 #
 # Pair with the existing openclaw-gateway service:
-#   sudo systemctl enable --now openclaw-gateway clawnify-chat
+#   sudo systemctl enable --now openclaw-gateway agent-control-ui
 #
 # Tweak User=, Group=, ExecStart= path, and Environment= to match your setup.
 
 [Unit]
-Description=Clawnify Chat — local UI for OpenClaw gateway
+Description=OpenClaw Agent Control UI — local web client for the gateway
 After=network.target
 # Optional: only start after the gateway is up.
 # Wants=openclaw-gateway.service
@@ -25,7 +26,7 @@ After=network.target
 Type=simple
 User=openclaw
 Group=openclaw
-ExecStart=/usr/bin/npx --yes @clawnify/chat
+ExecStart=/usr/bin/npx --yes @clawnify/agent-control-ui
 Environment=PORT=5174
 Environment=HOST=127.0.0.1
 Restart=on-failure

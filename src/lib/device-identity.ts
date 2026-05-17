@@ -7,7 +7,7 @@
  * - signature = base64url(Ed25519Sign(payload))
  */
 
-const STORAGE_KEY = "clawnify-chat-device-identity";
+const STORAGE_KEY = "agent-control-ui-device-identity";
 
 export interface DeviceIdentity {
   deviceId: string;

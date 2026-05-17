@@ -5,12 +5,12 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="dark light" />
-    <title>Clawnify Chat</title>
+    <title>Agent Control UI</title>
     <script>
       // Apply saved theme (or system fallback) before React mounts so the
       // first paint matches.
       try {
-        var saved = localStorage.getItem("clawnify-chat-theme") || "system";
+        var saved = localStorage.getItem("agent-control-ui-theme") || "system";
         var dark =
           saved === "dark" ||
           (saved === "system" &&

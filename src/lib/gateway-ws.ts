@@ -132,7 +132,7 @@ export class GatewayWs {
                       nonce,
                     },
                     locale: navigator.language || "en-US",
-                    userAgent: "clawnify-chat/0.0.1",
+                    userAgent: "clawnify-agent-control-ui/0.0.1",
                   },
                 }),
               );
