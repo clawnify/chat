@@ -129,6 +129,15 @@ This is an independent client. It speaks the standard Gateway WebSocket
 protocol documented at [openclaw.ai/web/control-ui](https://openclaw.ai/web/control-ui).
 No fork, no patches — point it at your gateway and it works.
 
+## Contributing
+
+Issues and pull requests welcome from anyone — see
+[CONTRIBUTING.md](./CONTRIBUTING.md) for the lightweight workflow.
+
 ## License
 
 MIT. See [LICENSE](./LICENSE).
+
+---
+
+Initiated by the [Clawnify](https://clawnify.com) team.
