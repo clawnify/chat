@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/popover";
 import type { SettingsSection } from "@/components/Settings";
 import { useTheme, type Theme } from "@/lib/theme";
+import { extractText } from "@/lib/protocol";
 
 export type ConnPillState = "idle" | "connecting" | "connected" | "error";
 
@@ -63,6 +64,9 @@ export function SessionsSidebar({
 }) {
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
   const [sessions, setSessions] = useState<SessionEntry[]>([]);
+  // sessionKey → derived title from the first user message, used when the
+  // gateway doesn't include derivedTitle/displayName for a session.
+  const [titleCache, setTitleCache] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -73,8 +77,6 @@ export function SessionsSidebar({
         if (list.some((s) => s.key === activeKey)) {
           setSessions(list);
         } else {
-          // Make sure the active session always appears in the list, even
-          // if the gateway hasn't materialized it yet.
           setSessions([{ key: activeKey }, ...list]);
         }
       })
@@ -85,6 +87,51 @@ export function SessionsSidebar({
       cancelled = true;
     };
   }, [gw, activeKey]);
+
+  // For sessions that have no gateway-provided title (and no cached one
+  // yet), fetch chat.history once and pull the first user message. Cap
+  // the parallel fan-out to whatever's currently in the list — typically
+  // a small handful.
+  useEffect(() => {
+    const needsTitle = sessions.filter(
+      (s) => !gatewayTitle(s) && !titleCache[s.key],
+    );
+    if (needsTitle.length === 0) return;
+    let cancelled = false;
+    Promise.all(
+      needsTitle.map(async (s) => {
+        try {
+          const payload = await gw.request<{ messages?: unknown[] }>(
+            "chat.history",
+            { sessionKey: s.key },
+          );
+          const entries = Array.isArray(payload?.messages) ? payload.messages : [];
+          for (const entry of entries) {
+            const e = entry as Record<string, unknown>;
+            if (e.role === "user") {
+              const text = extractText(e.content).trim();
+              if (text) return [s.key, text] as const;
+            }
+          }
+          return [s.key, ""] as const;
+        } catch {
+          return [s.key, ""] as const;
+        }
+      }),
+    ).then((results) => {
+      if (cancelled) return;
+      const next: Record<string, string> = {};
+      for (const [key, text] of results) {
+        if (text) next[key] = firstWords(text, 8);
+      }
+      if (Object.keys(next).length > 0) {
+        setTitleCache((prev) => ({ ...prev, ...next }));
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [gw, sessions, titleCache]);
 
   return (
     <aside className="w-64 shrink-0 border-r flex flex-col">
@@ -107,6 +154,7 @@ export function SessionsSidebar({
           <SessionRow
             key={s.key}
             session={s}
+            fallbackTitle={titleCache[s.key]}
             active={s.key === activeKey}
             onClick={() => onSelect(s.key)}
           />
@@ -244,10 +292,12 @@ function ConnPill({
 
 function SessionRow({
   session,
+  fallbackTitle,
   active,
   onClick,
 }: {
   session: SessionEntry;
+  fallbackTitle?: string;
   active: boolean;
   onClick: () => void;
 }) {
@@ -262,7 +312,7 @@ function SessionRow({
           : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
       )}
     >
-      <span className="truncate">{sessionTitle(session)}</span>
+      <span className="truncate">{sessionTitle(session, fallbackTitle)}</span>
       <span className="shrink-0 text-[11px] text-muted-foreground/70">
         {relativeAge(session.updatedAt ?? undefined)}
       </span>
@@ -270,18 +320,25 @@ function SessionRow({
   );
 }
 
-/**
- * Pick the most human-readable title from a session record. Prefer the
- * gateway-derived title (which is the first user message), then the
- * explicit displayName/label, then trim the last message preview, then
- * fall back to a key-derived label.
- */
-function sessionTitle(s: SessionEntry): string {
-  const candidate =
+/** Gateway-provided title fields, if any. */
+function gatewayTitle(s: SessionEntry): string {
+  return (
     s.derivedTitle?.trim() ||
     s.displayName?.trim() ||
     s.label?.trim() ||
-    firstWords(s.lastMessagePreview);
+    firstWords(s.lastMessagePreview) ||
+    ""
+  );
+}
+
+/**
+ * Pick the most human-readable title from a session record. Prefer the
+ * gateway-provided fields; otherwise fall back to whatever we derived
+ * from the first user message via chat.history; otherwise the session
+ * key's trailing segment.
+ */
+function sessionTitle(s: SessionEntry, fallbackTitle?: string): string {
+  const candidate = gatewayTitle(s) || fallbackTitle?.trim() || "";
   if (candidate) return truncate(candidate, 48);
   const parts = s.key.split(":");
   const tail = parts[parts.length - 1] || s.key;
