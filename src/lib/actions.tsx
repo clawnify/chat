@@ -8,11 +8,11 @@
  */
 
 import {
-  BookOpen,
   Brain,
   Camera,
   Compass,
   Eye,
+  FileEdit,
   Globe,
   Keyboard,
   MousePointerClick,
@@ -21,6 +21,22 @@ import {
   Terminal,
 } from "lucide-react";
 import type { ReactNode } from "react";
+
+/** True for tools that operate on a single file, rendered as filename pills. */
+export function isFileAction(toolName?: string): boolean {
+  return (
+    toolName === "read" ||
+    toolName === "write" ||
+    toolName === "edit" ||
+    toolName === "multiedit"
+  );
+}
+
+/** Filename to display in a file pill — for read/write/edit the summarized
+ *  arg is the path. Returns null for non-file actions. */
+export function fileActionPath(content: string): string {
+  return content;
+}
 
 const ICON_SIZE = 12;
 
@@ -84,8 +100,9 @@ export function ActionIcon({
   if (toolName === "web_search") return <Search size={size} />;
   if (toolName === "web_fetch") return <Globe size={size} />;
   if (toolName === "memory_search") return <Brain size={size} />;
-  if (toolName === "read") return <BookOpen size={size} />;
+  if (toolName === "read") return <Eye size={size} />;
   if (toolName === "write") return <Pencil size={size} />;
+  if (toolName === "edit" || toolName === "multiedit") return <FileEdit size={size} />;
   return <span className="font-mono text-[10px] font-medium leading-none">{toolName}</span>;
 }
 

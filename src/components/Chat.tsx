@@ -12,7 +12,9 @@ import { cn } from "@/lib/utils";
 import { ActionGroup } from "@/components/ActionGroup";
 import { ApprovalCard } from "@/components/ApprovalCard";
 import { AssistantMessage } from "@/components/AssistantMessage";
+import { FileActionPills } from "@/components/FileActionPills";
 import { SlashMenu, filterCommands } from "@/components/SlashMenu";
+import { isFileAction } from "@/lib/actions";
 import { ArrowUp, Paperclip, Sparkles, Square } from "lucide-react";
 
 export function Chat({
@@ -395,17 +397,22 @@ export function Chat({
             No messages yet. Say hi.
           </div>
         )}
-        {renderItems.map((item, i) =>
-          item.kind === "msg" ? (
-            <MessageRow key={i} msg={item.msg} />
-          ) : (
+        {renderItems.map((item, i) => {
+          if (item.kind === "msg") return <MessageRow key={i} msg={item.msg} />;
+          // If every action is a file op (read / write / edit / multiedit),
+          // render filename pills — otherwise fall back to the collapsible
+          // count group used for exec / browser / etc.
+          if (item.actions.every((a) => isFileAction(a.toolName))) {
+            return <FileActionPills key={i} actions={item.actions} />;
+          }
+          return (
             <ActionGroup
               key={i}
               actions={item.actions}
               anyPending={item.actions.some((a) => !a.toolResult)}
             />
-          ),
-        )}
+          );
+        })}
         {chatStream && (
           <MessageRow
             msg={{
