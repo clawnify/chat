@@ -56,6 +56,12 @@ export function ChatHeader({
   useEffect(() => {
     let cancelled = false;
 
+    // The default main session is always "Main" — skip the title lookup.
+    if (sessionKey === "agent:main:main") {
+      setTitle("Main");
+      return;
+    }
+
     async function load() {
       try {
         const list = await gw.request<{ sessions?: SessionEntry[] }>(

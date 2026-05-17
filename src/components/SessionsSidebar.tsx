@@ -342,11 +342,14 @@ function gatewayTitle(s: SessionEntry): string {
  * key's trailing segment.
  */
 function sessionTitle(s: SessionEntry, fallbackTitle?: string): string {
+  // The gateway's default agent session is always labelled "Main" — its
+  // derivedTitle is just the first user message and would shadow the
+  // canonical name.
+  if (s.key === "agent:main:main") return "Main";
   const candidate = gatewayTitle(s) || fallbackTitle?.trim() || "";
   if (candidate) return truncate(candidate, 48);
   const parts = s.key.split(":");
   const tail = parts[parts.length - 1] || s.key;
-  if (tail === "main") return "main";
   return truncate(tail, 12);
 }
 
