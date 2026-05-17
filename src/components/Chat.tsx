@@ -452,13 +452,19 @@ function groupForRender(messages: Message[]): RenderItem[] {
 function MessageRow({ msg }: { msg: Message }) {
   if (msg.role === "system") {
     return (
-      <div className="self-start max-w-[80%]">
-        <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
-          system
-        </div>
-        <div className="bg-muted/50 italic rounded-lg px-3 py-2 text-sm">
-          {msg.content}
-        </div>
+      <div className="self-start max-w-[85%] bg-muted/50 italic rounded-lg px-3 py-2 text-sm text-muted-foreground">
+        {msg.content}
+      </div>
+    );
+  }
+
+  // Thinking-only assistant entries — emit the dashed Thought pill alone,
+  // no bubble, no role label. Empties out cleanly when the loop is just
+  // thinking → tool-call → thinking → tool-call without text between.
+  if (msg.role === "assistant" && !msg.content && msg.thinking) {
+    return (
+      <div className="self-start max-w-[85%]">
+        <AssistantMessage content="" thinking={msg.thinking} />
       </div>
     );
   }
@@ -467,35 +473,26 @@ function MessageRow({ msg }: { msg: Message }) {
   return (
     <div
       className={cn(
-        "flex flex-col gap-1 max-w-[80%]",
-        isUser ? "self-end items-end" : "self-start items-start",
+        "max-w-[85%] rounded-lg px-3 py-2 text-sm",
+        isUser
+          ? "self-end bg-primary text-primary-foreground"
+          : "self-start",
+        !isUser && msg.role === "assistant" && "bg-transparent",
         msg.optimistic && "opacity-60",
+        msg.errorType && "border border-destructive text-destructive bg-destructive/5",
       )}
     >
-      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-        {msg.role}
-      </div>
-      <div
-        className={cn(
-          "rounded-lg px-3 py-2 text-sm",
-          isUser
-            ? "bg-primary text-primary-foreground"
-            : "bg-card border",
-          msg.errorType && "border-destructive text-destructive bg-destructive/5",
-        )}
-      >
-        {msg.role === "assistant" ? (
-          <AssistantMessage
-            content={msg.content}
-            thinking={msg.thinking}
-            streaming={msg.streaming}
-          />
-        ) : (
-          <div className="whitespace-pre-wrap break-words">
-            {msg.content || (msg.streaming ? "…" : "")}
-          </div>
-        )}
-      </div>
+      {msg.role === "assistant" ? (
+        <AssistantMessage
+          content={msg.content}
+          thinking={msg.thinking}
+          streaming={msg.streaming}
+        />
+      ) : (
+        <div className="whitespace-pre-wrap break-words">
+          {msg.content || (msg.streaming ? "…" : "")}
+        </div>
+      )}
     </div>
   );
 }
