@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { GatewayEvent, GatewayWs } from "@/lib/gateway-ws";
 import {
+  extractMessageText,
   parseApprovalFromToolResult,
   parseHistory,
   type Message,
@@ -25,8 +26,11 @@ export function Chat({ gw }: { gw: GatewayWs }) {
   const [slashIdx, setSlashIdx] = useState(0);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Live streaming text from `chat` event deltas — separate from the
+  // committed `messages` list. Upstream calls this `chatStream`. Each delta
+  // replaces it (deltas carry cumulative text, not increments).
+  const [chatStream, setChatStream] = useState<string>("");
   const listRef = useRef<HTMLDivElement>(null);
-  const streamingIdxRef = useRef<number | null>(null);
   const currentRunIdRef = useRef<string | null>(null);
 
   const fetchHistory = useCallback(async () => {
@@ -170,37 +174,59 @@ export function Chat({ gw }: { gw: GatewayWs }) {
       top: listRef.current.scrollHeight,
       behavior: "smooth",
     });
-  }, [messages]);
+  }, [messages, chatStream]);
 
+  /**
+   * Canonical chat-event handler. Matches `handleChatEvent` in upstream
+   * `ui/src/ui/controllers/chat.ts`:
+   *
+   *   { state: "delta",    message, runId?, sessionKey } → live streaming text
+   *   { state: "final",    message, runId,  sessionKey } → commit final assistant turn
+   *   { state: "aborted",  message, runId,  sessionKey } → commit partial assistant turn
+   *   { state: "error",    errorMessage,    sessionKey } → surface error
+   *
+   * Only events for our session OR our active runId are applied.
+   */
   function applyChatEvent(payload: ChatEventPayload | undefined) {
     if (!payload) return;
+    const sessionMatches = payload.sessionKey === SESSION_KEY;
+    const activeRunMatches =
+      currentRunIdRef.current != null && payload.runId === currentRunIdRef.current;
+    if (!sessionMatches && !activeRunMatches) return;
 
-    if (payload.kind === "delta" && typeof payload.text === "string") {
-      setMessages((prev) => {
-        const idx = streamingIdxRef.current;
-        if (idx == null || !prev[idx] || prev[idx].role !== "assistant") {
-          const next = [
-            ...prev,
-            {
-              role: "assistant" as const,
-              content: payload.text!,
-              streaming: true,
-            },
-          ];
-          streamingIdxRef.current = next.length - 1;
-          return next;
-        }
-        const next = prev.slice();
-        next[idx] = { ...next[idx], content: next[idx].content + payload.text! };
-        return next;
-      });
+    if (payload.state === "delta") {
+      const next = extractMessageText(payload.message);
+      if (typeof next === "string") setChatStream(next);
       return;
     }
 
-    if (payload.kind === "end" || payload.kind === "complete") {
-      streamingIdxRef.current = null;
+    if (payload.state === "final") {
+      // Refetch to get the authoritative version (with tool calls, thinking,
+      // etc.) — the in-event message is just the visible text. Clearing the
+      // stream first so we don't double-render during the refetch window.
+      setChatStream("");
+      currentRunIdRef.current = null;
       setSending(false);
       fetchHistory();
+      return;
+    }
+
+    if (payload.state === "aborted") {
+      // Keep whatever partial text was streamed; refetch for the canonical
+      // tail (gateway persists aborted partials per docs).
+      setChatStream("");
+      currentRunIdRef.current = null;
+      setSending(false);
+      fetchHistory();
+      return;
+    }
+
+    if (payload.state === "error") {
+      setError(payload.errorMessage ?? "chat error");
+      setChatStream("");
+      currentRunIdRef.current = null;
+      setSending(false);
+      return;
     }
   }
 
@@ -267,7 +293,8 @@ export function Chat({ gw }: { gw: GatewayWs }) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setSending(false);
-      streamingIdxRef.current = null;
+      setChatStream("");
+      currentRunIdRef.current = null;
       fetchHistory();
     }
   }
@@ -329,6 +356,15 @@ export function Chat({ gw }: { gw: GatewayWs }) {
               anyPending={item.actions.some((a) => !a.toolResult)}
             />
           ),
+        )}
+        {chatStream && (
+          <MessageRow
+            msg={{
+              role: "assistant",
+              content: chatStream,
+              streaming: true,
+            }}
+          />
         )}
       </div>
 
@@ -465,7 +501,9 @@ function MessageRow({ msg }: { msg: Message }) {
 }
 
 interface ChatEventPayload {
-  kind?: string;
-  text?: string;
+  state: "delta" | "final" | "aborted" | "error";
+  sessionKey: string;
   runId?: string;
+  message?: unknown;
+  errorMessage?: string;
 }

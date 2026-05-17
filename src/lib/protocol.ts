@@ -75,6 +75,21 @@ export function extractText(content: unknown): string {
   return "";
 }
 
+/**
+ * Pull visible text from a full message object (not just its content array).
+ * Mirrors upstream `ui/src/ui/chat/message-extract.ts` for the call sites that
+ * receive a `payload.message` from a chat event — those carry the whole
+ * message, with text either in `.content[]` (block form) or `.text` (string).
+ */
+export function extractMessageText(message: unknown): string {
+  if (!message || typeof message !== "object") {
+    return typeof message === "string" ? message : "";
+  }
+  const m = message as Record<string, unknown>;
+  if (typeof m.text === "string") return m.text;
+  return extractText(m.content);
+}
+
 /** Thinking/reasoning text from { type: "thinking", thinking: "..." } blocks. */
 export function extractThinking(content: unknown): string {
   if (!Array.isArray(content)) return "";
