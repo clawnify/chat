@@ -1,6 +1,12 @@
 import { Eye, FileEdit, Pencil } from "lucide-react";
 import type { Message } from "@/lib/protocol";
 import { cn } from "@/lib/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { ToolTooltipContent } from "@/components/ToolTooltipContent";
 
 /**
  * Horizontal row of filename pills for read / write / edit tool calls.
@@ -25,18 +31,24 @@ function FilePill({ action }: { action: Message }) {
   const isError = action.toolError;
   const pending = !action.toolResult;
   return (
-    <div
-      title={`${tool}: ${path}`}
-      className={cn(
-        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border bg-muted/50 text-xs",
-        isError
-          ? "border-destructive/40 text-destructive bg-destructive/5"
-          : "text-muted-foreground border-border/60",
-        pending && "animate-pulse",
-      )}
-    >
-      <Icon size={12} className="shrink-0" />
-      <span className="font-mono truncate max-w-[44ch]">{path}</span>
-    </div>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div
+          className={cn(
+            "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border bg-muted/50 text-xs cursor-default",
+            isError
+              ? "border-destructive/40 text-destructive bg-destructive/5"
+              : "text-muted-foreground border-border/60",
+            pending && "animate-pulse",
+          )}
+        >
+          <Icon size={12} className="shrink-0" />
+          <span className="font-mono truncate max-w-[44ch]">{path}</span>
+        </div>
+      </TooltipTrigger>
+      <TooltipContent side="top">
+        <ToolTooltipContent action={action} />
+      </TooltipContent>
+    </Tooltip>
   );
 }
