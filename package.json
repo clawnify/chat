@@ -10,7 +10,12 @@
   },
   "homepage": "https://github.com/clawnify/chat#readme",
   "bugs": "https://github.com/clawnify/chat/issues",
-  "keywords": ["openclaw", "chat", "agent", "ai"],
+  "keywords": [
+    "openclaw",
+    "chat",
+    "agent",
+    "ai"
+  ],
   "bin": {
     "clawnify-chat": "bin/clawnify-chat.mjs"
   },
@@ -30,6 +35,7 @@
     "prepublishOnly": "pnpm typecheck && pnpm build"
   },
   "dependencies": {
+    "lucide-react": "^1.16.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

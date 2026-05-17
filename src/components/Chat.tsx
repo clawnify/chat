@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { GatewayEvent, GatewayWs } from "../lib/gateway-ws";
 import { parseHistory, type Message } from "../lib/protocol";
-import { actionLabel } from "../lib/actions";
+import { ActionGroup } from "./ActionGroup";
 
 /**
  * Stage 1 of the rich port: history fetch + four-role rendering using the new
@@ -130,15 +130,25 @@ export function Chat({ gw }: { gw: GatewayWs }) {
     }
   }
 
+  const renderItems = useMemo(() => groupForRender(messages), [messages]);
+
   return (
     <main className="chat">
       <div className="messages" ref={listRef}>
         {messages.length === 0 && !sending && (
           <div className="messages-empty">No messages yet. Say hi.</div>
         )}
-        {messages.map((m, i) => (
-          <MessageRow key={i} msg={m} />
-        ))}
+        {renderItems.map((item, i) =>
+          item.kind === "msg" ? (
+            <MessageRow key={i} msg={item.msg} />
+          ) : (
+            <ActionGroup
+              key={i}
+              actions={item.actions}
+              anyPending={item.actions.some((a) => !a.toolResult)}
+            />
+          ),
+        )}
       </div>
 
       {error && <div className="chat-error">{error}</div>}
@@ -168,20 +178,30 @@ export function Chat({ gw }: { gw: GatewayWs }) {
   );
 }
 
-function MessageRow({ msg }: { msg: Message }) {
-  if (msg.role === "action") {
-    return (
-      <div className="action">
-        <span className="action-pill" title={msg.content}>
-          <span className="action-icon">▸</span>
-          <span className="action-text">
-            {actionLabel(msg.toolName ?? "tool", msg.content)}
-          </span>
-          {msg.toolError && <span className="action-err">error</span>}
-        </span>
-      </div>
-    );
+type RenderItem =
+  | { kind: "msg"; msg: Message }
+  | { kind: "actions"; actions: Message[] };
+
+/** Collapse runs of consecutive action messages into a single ActionGroup. */
+function groupForRender(messages: Message[]): RenderItem[] {
+  const items: RenderItem[] = [];
+  let buf: Message[] = [];
+  for (const m of messages) {
+    if (m.role === "action") {
+      buf.push(m);
+      continue;
+    }
+    if (buf.length) {
+      items.push({ kind: "actions", actions: buf });
+      buf = [];
+    }
+    items.push({ kind: "msg", msg: m });
   }
+  if (buf.length) items.push({ kind: "actions", actions: buf });
+  return items;
+}
+
+function MessageRow({ msg }: { msg: Message }) {
   if (msg.role === "system") {
     return (
       <div className="msg msg-system">

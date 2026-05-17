@@ -279,39 +279,83 @@ pre {
   opacity: 0.6;
 }
 
-/* --- action pills (stage 1: text-only, stage 2: icons) --- */
-.action {
+/* --- action group --- */
+.actiongroup {
   align-self: flex-start;
-  max-width: 80%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
-.action-pill {
+.actiongroup-pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   background: var(--bg-elev-2);
   border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 3px 10px;
-  font-size: 12px;
-  font-family: var(--font-mono);
+  padding: 4px 10px;
   color: var(--text-dim);
-  cursor: default;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.12s ease;
 }
-.action-icon {
-  color: var(--accent);
-  font-size: 10px;
+.actiongroup-pill:hover {
+  background: var(--bg-elev);
 }
-.action-text {
-  max-width: 480px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.action-err {
+.actiongroup-pill.has-error {
+  border-color: var(--error);
   color: var(--error);
+}
+.actiongroup-pill.is-pending {
+  animation: pulse 1.4s ease-in-out infinite;
+}
+.actiongroup-count {
+  font-feature-settings: "tnum";
+  opacity: 0.6;
   font-size: 11px;
-  border-left: 1px solid var(--border);
-  padding-left: 6px;
+}
+.actiongroup-chev {
+  opacity: 0.5;
+  transition: transform 0.15s ease;
+}
+.actiongroup-chev.is-open {
+  transform: rotate(90deg);
+}
+.actiongroup-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.actiongroup-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 8px;
+  color: var(--text-dim);
+}
+.actiongroup-item.has-error {
+  border-color: var(--error);
+  color: var(--error);
+}
+.action-textname {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+}
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
 }
 
 .chat-error {
