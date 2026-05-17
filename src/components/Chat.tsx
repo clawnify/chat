@@ -13,7 +13,7 @@ import { ActionGroup } from "@/components/ActionGroup";
 import { ApprovalCard } from "@/components/ApprovalCard";
 import { AssistantMessage } from "@/components/AssistantMessage";
 import { SlashMenu, filterCommands } from "@/components/SlashMenu";
-import { ArrowUp, Square } from "lucide-react";
+import { ArrowUp, Paperclip, Sparkles, Square } from "lucide-react";
 
 export function Chat({
   gw,
@@ -23,6 +23,8 @@ export function Chat({
   sessionKey: string;
 }) {
   const SESSION_KEY = sessionKey;
+  const [modelName, setModelName] = useState<string>("");
+  const [thinkingLevel, setThinkingLevel] = useState<string>("medium");
   const [messages, setMessages] = useState<Message[]>([]);
   const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([]);
   const [input, setInput] = useState("");
@@ -79,6 +81,26 @@ export function Chat({
     },
     [gw],
   );
+
+  // Fetch the agent's current model/thinking for the status bar.
+  useEffect(() => {
+    let cancelled = false;
+    gw.request<AgentsListResponse>("agents.list", {})
+      .then((res) => {
+        if (cancelled) return;
+        const agent = res?.agents?.find((a) => SESSION_KEY.includes(a.id ?? "")) ?? res?.agents?.[0];
+        const primary = agent?.model?.primary;
+        if (primary) setModelName(primary);
+        const thinking = agent?.thinking;
+        if (typeof thinking === "string") setThinkingLevel(thinking);
+      })
+      .catch(() => {
+        // best effort; status bar just shows "—" when unknown
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [gw, SESSION_KEY]);
 
   useEffect(() => {
     let cancelled = false;
@@ -284,21 +306,22 @@ export function Chat({
     setSlashIdx(0);
   }
 
+  /**
+   * Send chat.abort and let the cleanup happen when the resulting
+   * `state: "aborted"` event arrives. Don't clear local stream/run state
+   * here — the canonical upstream `abortChatRun` doesn't either, and
+   * clearing optimistically would cause the gateway's reply to be dropped
+   * by the `sessionMatches || activeRunMatches` filter.
+   */
   async function abort() {
     const runId = currentRunIdRef.current;
     try {
-      // Per upstream gateway-chat.ts both sessionKey AND runId are required.
       await gw.request("chat.abort", {
         sessionKey: SESSION_KEY,
         ...(runId ? { runId } : {}),
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setSending(false);
-      setChatStream("");
-      currentRunIdRef.current = null;
-      fetchHistory();
     }
   }
 
@@ -434,16 +457,21 @@ export function Chat({
               style={{ maxHeight: "200px", minHeight: "44px" }}
             />
             <div className="flex items-center justify-between px-2.5 pb-2.5">
-              <div className="text-[11px] text-muted-foreground/60 pl-2 font-mono">
-                {SESSION_KEY}
-              </div>
+              <button
+                type="button"
+                disabled
+                title="Attachments (coming soon)"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground/40 cursor-not-allowed"
+              >
+                <Paperclip size={18} />
+              </button>
               <div className="flex items-center gap-1.5">
                 {isRunning ? (
                   <button
                     type="button"
                     onClick={abort}
                     title="Stop"
-                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/80 text-white hover:bg-destructive transition-colors"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/80 text-white hover:bg-red-600 transition-colors"
                   >
                     <Square size={12} strokeWidth={2.5} />
                   </button>
@@ -466,10 +494,41 @@ export function Chat({
               </div>
             </div>
           </div>
+          {/* Status bar below the composer. Replaces the dashboard's Auto Router
+              pill with the agent's current model name. */}
+          <div className="flex items-center justify-between gap-4 px-3 pt-2 text-[11px] text-muted-foreground/70">
+            <div className="flex items-center gap-4">
+              <span className="inline-flex items-center gap-1">
+                <kbd className="font-mono">/</kbd> commands
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Sparkles size={11} />
+                thinking: {thinkingLevel}
+              </span>
+              {modelName && (
+                <span className="inline-flex items-center gap-1 font-mono truncate max-w-[40ch]">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-muted-foreground/60" />
+                  {modelName}
+                </span>
+              )}
+            </div>
+            <span className="hidden sm:inline">
+              <kbd className="font-mono">Enter</kbd> send ·{" "}
+              <kbd className="font-mono">Shift+Enter</kbd> new line
+            </span>
+          </div>
         </div>
       </div>
     </main>
   );
+}
+
+interface AgentsListResponse {
+  agents?: {
+    id?: string;
+    model?: { primary?: string };
+    thinking?: string;
+  }[];
 }
 
 type RenderItem =
