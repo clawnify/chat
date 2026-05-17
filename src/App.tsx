@@ -12,6 +12,13 @@ import { Settings } from "@/components/Settings";
 import { Chat } from "@/components/Chat";
 import { DetectedGatewayCard } from "@/components/DetectedGatewayCard";
 import { SessionsSidebar } from "@/components/SessionsSidebar";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 type ConnState =
   | { kind: "idle" }
@@ -101,8 +108,10 @@ export function App() {
     });
   }
 
-  // Setup / connection screens — full-width, no sidebar yet.
-  if (showSettings) {
+  // Setup-time settings (no gateway yet) — render Settings inline since
+  // there's nothing else on screen.
+  const isSetupTime = !gatewayUrl || !token || conn.kind !== "connected";
+  if (showSettings && isSetupTime) {
     return (
       <div className="h-full flex flex-col mx-auto max-w-2xl">
         <Settings
@@ -143,7 +152,8 @@ export function App() {
     );
   }
 
-  // Connected — two-column layout matches the reference design.
+  // Connected — two-column layout matches the reference design. Settings
+  // opens as a shadcn Dialog over the layout.
   return (
     <div className="h-full flex">
       <SessionsSidebar
@@ -154,6 +164,23 @@ export function App() {
         onOpenSettings={() => setShowSettings(true)}
       />
       <Chat gw={gwRef.current} sessionKey={sessionKey} />
+
+      <Dialog open={showSettings} onOpenChange={setShowSettings}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Settings</DialogTitle>
+            <DialogDescription>
+              Connect to a different OpenClaw gateway.
+            </DialogDescription>
+          </DialogHeader>
+          <Settings
+            initialUrl={gatewayUrl ?? ""}
+            initialToken={token ?? ""}
+            onSave={handleSave}
+            onCancel={() => setShowSettings(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

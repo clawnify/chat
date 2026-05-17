@@ -87,8 +87,8 @@ function ThinkingBlock({
         )}
       </button>
       {open && (
-        <div className="border-l-2 border-border/70 pl-4 ml-1 text-sm whitespace-pre-wrap break-words leading-relaxed">
-          {text}
+        <div className="border-l-2 border-border/70 pl-4 ml-1 text-sm leading-relaxed markdown text-muted-foreground">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
         </div>
       )}
     </div>
