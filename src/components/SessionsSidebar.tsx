@@ -54,6 +54,7 @@ export function SessionsSidebar({
   onNew,
   onOpenSection,
   connState,
+  sessionsBust,
 }: {
   gw: GatewayWs;
   activeKey: string;
@@ -61,6 +62,9 @@ export function SessionsSidebar({
   onNew: () => void;
   onOpenSection: (section: SettingsSection) => void;
   connState: ConnPillState;
+  /** Counter that increments when a session is renamed/deleted elsewhere
+   *  so the sidebar refetches the list. */
+  sessionsBust: number;
 }) {
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
   const [sessions, setSessions] = useState<SessionEntry[]>([]);
@@ -86,7 +90,7 @@ export function SessionsSidebar({
     return () => {
       cancelled = true;
     };
-  }, [gw, activeKey]);
+  }, [gw, activeKey, sessionsBust]);
 
   // For sessions that have no gateway-provided title (and no cached one
   // yet), fetch chat.history once and pull the first user message. Cap

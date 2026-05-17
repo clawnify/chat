@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { ActionGroup } from "@/components/ActionGroup";
 import { ApprovalCard } from "@/components/ApprovalCard";
 import { AssistantMessage } from "@/components/AssistantMessage";
+import { ChatHeader } from "@/components/ChatHeader";
 import { FileActionPills } from "@/components/FileActionPills";
 import { SlashMenu, filterCommands } from "@/components/SlashMenu";
 import { isFileAction } from "@/lib/actions";
@@ -20,9 +21,13 @@ import { ArrowUp, Paperclip, Sparkles, Square } from "lucide-react";
 export function Chat({
   gw,
   sessionKey,
+  onSessionsChanged,
+  onSessionDeleted,
 }: {
   gw: GatewayWs;
   sessionKey: string;
+  onSessionsChanged: () => void;
+  onSessionDeleted: () => void;
 }) {
   const SESSION_KEY = sessionKey;
   const [modelName, setModelName] = useState<string>("");
@@ -388,6 +393,12 @@ export function Chat({
 
   return (
     <main className="flex-1 flex flex-col min-h-0">
+      <ChatHeader
+        gw={gw}
+        sessionKey={SESSION_KEY}
+        onSessionsChanged={onSessionsChanged}
+        onSessionDeleted={onSessionDeleted}
+      />
       <div
         ref={listRef}
         className="flex-1 overflow-y-auto no-scrollbar px-6 py-6 flex flex-col gap-3 max-w-3xl w-full mx-auto"

@@ -44,6 +44,9 @@ export function App() {
   const [sessionKey, setSessionKey] = useState<string>(
     () => parseSessionFromPath(window.location.pathname) ?? DEFAULT_SESSION_KEY,
   );
+  // Bumped any time a session is renamed/deleted so consumers can refetch
+  // sessions.list. Avoids prop-drilling a shared sessions store.
+  const [sessionsBust, setSessionsBust] = useState(0);
   const gwRef = useRef<GatewayWs | null>(null);
 
   useEffect(() => {
@@ -180,8 +183,14 @@ export function App() {
         onNew={handleNewSession}
         onOpenSection={setOpenDialog}
         connState={conn.kind}
+        sessionsBust={sessionsBust}
       />
-      <Chat gw={gwRef.current} sessionKey={sessionKey} />
+      <Chat
+        gw={gwRef.current}
+        sessionKey={sessionKey}
+        onSessionsChanged={() => setSessionsBust((n) => n + 1)}
+        onSessionDeleted={() => setSessionKey(DEFAULT_SESSION_KEY)}
+      />
 
       <ConnectionDialog
         open={openDialog === "connection"}
