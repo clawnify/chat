@@ -14,6 +14,7 @@ import { ApprovalCard } from "@/components/ApprovalCard";
 import { AssistantMessage } from "@/components/AssistantMessage";
 import { ChatHeader } from "@/components/ChatHeader";
 import { FileActionPills } from "@/components/FileActionPills";
+import { ModelPicker } from "@/components/ModelPicker";
 import { SlashMenu, filterCommands } from "@/components/SlashMenu";
 import { isFileAction } from "@/lib/actions";
 import { ArrowUp, Paperclip, Sparkles, Square } from "lucide-react";
@@ -537,10 +538,21 @@ export function Chat({
                 thinking: {thinkingLevel}
               </span>
               {modelName && (
-                <span className="inline-flex items-center gap-1 font-mono truncate max-w-[40ch]">
-                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-muted-foreground/60" />
-                  {modelName}
-                </span>
+                <ModelPicker
+                  gw={gw}
+                  sessionKey={SESSION_KEY}
+                  currentModel={modelName}
+                  onModelChanged={setModelName}
+                >
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 font-mono truncate max-w-[40ch] hover:text-foreground transition-colors cursor-pointer"
+                    title="Switch model"
+                  >
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-muted-foreground/60" />
+                    {modelName}
+                  </button>
+                </ModelPicker>
               )}
             </div>
             <span className="hidden sm:inline">
