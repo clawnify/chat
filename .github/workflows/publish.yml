@@ -1,0 +1,39 @@
+name: Publish @clawnify/agent-control-ui
+
+on:
+  release:
+    types: [published]
+  # Allow manual triggering from any branch (needed to bootstrap the first
+  # release while this workflow file isn't yet on the default branch).
+  # `gh workflow run publish.yml --ref <branch>`
+  workflow_dispatch:
+
+jobs:
+  publish:
+    # Release-tag publishes are gated to `v*` tags. Manual dispatch always
+    # runs (caller's responsibility to bump the version in package.json
+    # before triggering).
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build
+
+      - run: pnpm publish --access public --no-git-checks --ignore-scripts
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
