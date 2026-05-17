@@ -1,6 +1,8 @@
-# clawnify/chat
+# If OpenClaw wouldn't have been made by engineers it would look like this
 
 A friendlier chat UI for [OpenClaw](https://openclaw.ai) gateways.
+
+<img width="1207" height="992" alt="Image" src="https://github.com/user-attachments/assets/b8c5d52f-3977-4a4c-80ea-fb3c74e76cfd" />
 
 OpenClaw ships a built-in Control UI at `http://<gateway>:18789`. This is a
 separate, opinionated client that talks the same WebSocket protocol but trades
