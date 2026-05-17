@@ -77,13 +77,13 @@ function ThinkingBlock({
       <button
         type="button"
         onClick={onToggle}
-        className="flex items-center justify-between gap-2 text-left text-sm hover:text-foreground transition-colors group"
+        className="self-start inline-flex items-center gap-1.5 text-left text-sm hover:text-foreground transition-colors group"
       >
-        <span className={cn("truncate", isStreaming && "italic")}>{preview}</span>
+        <span className={cn(isStreaming && "italic")}>{preview}</span>
         {open ? (
-          <ChevronDown size={14} className="shrink-0 opacity-60 group-hover:opacity-100" />
+          <ChevronDown size={14} className="opacity-60 group-hover:opacity-100" />
         ) : (
-          <ChevronRight size={14} className="shrink-0 opacity-60 group-hover:opacity-100" />
+          <ChevronRight size={14} className="opacity-60 group-hover:opacity-100" />
         )}
       </button>
       {open && (
