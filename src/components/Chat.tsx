@@ -436,9 +436,10 @@ export function Chat({
       )}
 
       {/* Composer — markup ported from apps/web chat-panel.tsx (Clawnify dashboard).
-          Rounded container with ring, auto-resizing textarea, toolbar at bottom. */}
-      <div className="px-6 pb-6 max-w-3xl w-full mx-auto">
-        <div className="relative">
+          Outer gray container (`bg-muted/40`) wraps the white inner box + status bar
+          like the dashboard does. */}
+      <div className="px-4 pb-4 max-w-2xl w-full mx-auto">
+        <div className="relative rounded-2xl border border-border/60 bg-muted/40 p-2">
           <SlashMenu
             filter={input}
             selectedIdx={slashIdx}
@@ -505,9 +506,10 @@ export function Chat({
               </div>
             </div>
           </div>
-          {/* Status bar below the composer. Replaces the dashboard's Auto Router
-              pill with the agent's current model name. */}
-          <div className="flex items-center justify-between gap-4 px-3 pt-2 text-[11px] text-muted-foreground/70">
+          {/* Status bar inside the gray outer container, below the white box.
+              Replaces the dashboard's Auto Router pill with the agent's
+              current model name. */}
+          <div className="flex items-center justify-between gap-4 px-2.5 pt-2 pb-1 text-[11px] text-muted-foreground/70">
             <div className="flex items-center gap-4">
               <span className="inline-flex items-center gap-1">
                 <kbd className="font-mono">/</kbd> commands
