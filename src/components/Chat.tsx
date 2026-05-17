@@ -390,7 +390,7 @@ export function Chat({
     <main className="flex-1 flex flex-col min-h-0">
       <div
         ref={listRef}
-        className="flex-1 overflow-y-auto px-6 py-6 flex flex-col gap-3 max-w-3xl w-full mx-auto"
+        className="flex-1 overflow-y-auto no-scrollbar px-6 py-6 flex flex-col gap-3 max-w-3xl w-full mx-auto"
       >
         {messages.length === 0 && !sending && (
           <div className="m-auto text-sm text-muted-foreground">
@@ -425,7 +425,7 @@ export function Chat({
       </div>
 
       {pendingApprovals.length > 0 && (
-        <div className="bg-muted/30 px-6 py-3 flex flex-col gap-2.5 max-h-[50vh] overflow-y-auto max-w-3xl w-full mx-auto">
+        <div className="bg-muted/30 px-6 py-3 flex flex-col gap-2.5 max-h-[50vh] overflow-y-auto no-scrollbar max-w-3xl w-full mx-auto">
           {pendingApprovals.map((a) => (
             <ApprovalCard
               key={a.approvalId}

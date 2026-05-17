@@ -102,7 +102,7 @@ export function SessionsSidebar({
         </button>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-2 pb-2 flex flex-col gap-0.5">
+      <nav className="flex-1 overflow-y-auto no-scrollbar px-2 pb-2 flex flex-col gap-0.5">
         {sessions.map((s) => (
           <SessionRow
             key={s.key}

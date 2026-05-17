@@ -15,7 +15,7 @@ export function SlashMenu({
   if (filtered.length === 0) return null;
   return (
     <div className="absolute bottom-2 left-0 right-0 z-10 rounded-md border bg-popover text-popover-foreground shadow-lg overflow-hidden">
-      <div className="max-h-72 overflow-y-auto p-1">
+      <div className="max-h-72 overflow-y-auto no-scrollbar p-1">
         {filtered.map((cmd, i) => (
           <button
             key={cmd.name}

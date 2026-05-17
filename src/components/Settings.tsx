@@ -215,7 +215,7 @@ export function AgentsDialog({
           <p className="text-sm text-muted-foreground">No agents reported.</p>
         )}
         {!loading && agents.length > 0 && (
-          <ul className="flex flex-col gap-2 max-h-96 overflow-y-auto">
+          <ul className="flex flex-col gap-2 max-h-96 overflow-y-auto no-scrollbar">
             {agents.map((a, i) => (
               <li
                 key={a.id ?? i}
