@@ -1,52 +1,39 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { GatewayEvent, GatewayWs } from "../lib/gateway-ws";
-
-interface ChatMessage {
-  id: string;
-  role: "user" | "assistant" | "system";
-  text: string;
-  pending?: boolean;
-}
+import { parseHistory, type Message } from "../lib/protocol";
+import { actionLabel } from "../lib/actions";
 
 /**
- * Minimal v0 chat surface. Speaks gateway v4:
- *   - chat.history       : initial transcript fetch
- *   - chat.send          : send a user message (acks; reply streams via events)
- *   - chat.abort         : stop the current run
- *   - chat events        : streaming assistant chunks + run lifecycle
- *
- * Tool-event cards, approval UI, session/model switching, and the rich
- * content renderer are intentionally NOT in this slice — they come in the
- * protocol-core port that follows this scaffold.
+ * Stage 1 of the rich port: history fetch + four-role rendering using the new
+ * pure parser in src/lib/protocol.ts. Streaming behavior is still naive (delta
+ * → append, end → refetch). Tool-event cards, approval cards, action grouping,
+ * thinking display, and slash commands land in later stages.
  */
 export function Chat({ gw }: { gw: GatewayWs }) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  const streamingIdRef = useRef<string | null>(null);
+  const streamingIdxRef = useRef<number | null>(null);
 
-  // Load history + subscribe to events.
+  const fetchHistory = useCallback(async () => {
+    try {
+      const payload = await gw.request("chat.history", { limit: 100 });
+      setMessages(parseHistory(payload));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [gw]);
+
   useEffect(() => {
     let cancelled = false;
-
-    gw.request<{ entries?: HistoryEntry[] }>("chat.history", { limit: 100 })
-      .then((res) => {
-        if (cancelled) return;
-        const parsed = parseHistory(res.entries ?? []);
-        setMessages(parsed);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
-      });
+    fetchHistory();
 
     const handler = (evt: GatewayEvent) => {
       if (cancelled) return;
       if (evt.event === "chat") {
-        const payload = evt.payload as ChatEventPayload | undefined;
-        if (!payload) return;
-        applyChatEvent(payload);
+        applyChatEvent(evt.payload as ChatEventPayload | undefined);
       }
     };
 
@@ -55,41 +42,47 @@ export function Chat({ gw }: { gw: GatewayWs }) {
       cancelled = true;
       gw.onEvent(null);
     };
-  }, [gw]);
+  }, [gw, fetchHistory]);
 
-  // Auto-scroll to bottom on new messages.
   useEffect(() => {
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
+    listRef.current?.scrollTo({
+      top: listRef.current.scrollHeight,
+      behavior: "smooth",
+    });
   }, [messages]);
 
-  function applyChatEvent(payload: ChatEventPayload) {
-    // Streaming assistant text — append to the in-flight assistant bubble.
+  function applyChatEvent(payload: ChatEventPayload | undefined) {
+    if (!payload) return;
+
+    // Streaming assistant text — append to or create the in-flight bubble.
     if (payload.kind === "delta" && typeof payload.text === "string") {
       setMessages((prev) => {
-        const id = streamingIdRef.current;
-        if (!id) {
-          const newId = makeId();
-          streamingIdRef.current = newId;
-          return [
+        const idx = streamingIdxRef.current;
+        if (idx == null || !prev[idx] || prev[idx].role !== "assistant") {
+          const next = [
             ...prev,
-            { id: newId, role: "assistant", text: payload.text!, pending: true },
+            {
+              role: "assistant" as const,
+              content: payload.text!,
+              streaming: true,
+            },
           ];
+          streamingIdxRef.current = next.length - 1;
+          return next;
         }
-        return prev.map((m) =>
-          m.id === id ? { ...m, text: (m.text ?? "") + payload.text! } : m,
-        );
+        const next = prev.slice();
+        next[idx] = { ...next[idx], content: next[idx].content + payload.text! };
+        return next;
       });
       return;
     }
-    // Run finished — finalize the bubble.
+
+    // Run finished — refetch history so we get the authoritative final state
+    // including action/toolResult correlation that streaming deltas don't carry.
     if (payload.kind === "end" || payload.kind === "complete") {
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === streamingIdRef.current ? { ...m, pending: false } : m,
-        ),
-      );
-      streamingIdRef.current = null;
+      streamingIdxRef.current = null;
       setSending(false);
+      fetchHistory();
     }
   }
 
@@ -101,13 +94,16 @@ export function Chat({ gw }: { gw: GatewayWs }) {
     setSending(true);
     setError(null);
 
-    const userMsg: ChatMessage = { id: makeId(), role: "user", text };
-    setMessages((prev) => [...prev, userMsg]);
+    // Optimistic user bubble — replaced when history refetch completes.
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", content: text, optimistic: true },
+    ]);
 
     try {
       await gw.request("chat.send", {
         text,
-        idempotencyKey: userMsg.id,
+        idempotencyKey: `clw-${Date.now()}`,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -122,7 +118,8 @@ export function Chat({ gw }: { gw: GatewayWs }) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setSending(false);
-      streamingIdRef.current = null;
+      streamingIdxRef.current = null;
+      fetchHistory();
     }
   }
 
@@ -139,11 +136,8 @@ export function Chat({ gw }: { gw: GatewayWs }) {
         {messages.length === 0 && !sending && (
           <div className="messages-empty">No messages yet. Say hi.</div>
         )}
-        {messages.map((m) => (
-          <div key={m.id} className={`msg msg-${m.role}`}>
-            <div className="msg-role">{m.role}</div>
-            <div className="msg-text">{m.text}</div>
-          </div>
+        {messages.map((m, i) => (
+          <MessageRow key={i} msg={m} />
         ))}
       </div>
 
@@ -174,36 +168,41 @@ export function Chat({ gw }: { gw: GatewayWs }) {
   );
 }
 
-// --- minimal history parser ---------------------------------------------------
-// chat-panel.tsx's parseHistory does ~400 lines of work (tool calls, action
-// groups, abort partials, etc.). This v0 keeps only the basics; the rich
-// parser comes in the protocol-core port follow-up.
-
-interface HistoryEntry {
-  id?: string;
-  role?: string;
-  text?: string;
-  content?: string;
+function MessageRow({ msg }: { msg: Message }) {
+  if (msg.role === "action") {
+    return (
+      <div className="action">
+        <span className="action-pill" title={msg.content}>
+          <span className="action-icon">▸</span>
+          <span className="action-text">
+            {actionLabel(msg.toolName ?? "tool", msg.content)}
+          </span>
+          {msg.toolError && <span className="action-err">error</span>}
+        </span>
+      </div>
+    );
+  }
+  if (msg.role === "system") {
+    return (
+      <div className="msg msg-system">
+        <div className="msg-role">system</div>
+        <div className="msg-text">{msg.content}</div>
+      </div>
+    );
+  }
+  const className = `msg msg-${msg.role}${msg.errorType ? " msg-error" : ""}${
+    msg.optimistic ? " msg-optimistic" : ""
+  }`;
+  return (
+    <div className={className}>
+      <div className="msg-role">{msg.role}</div>
+      <div className="msg-text">{msg.content || (msg.streaming ? "…" : "")}</div>
+    </div>
+  );
 }
 
 interface ChatEventPayload {
   kind?: string;
   text?: string;
   runId?: string;
-}
-
-function parseHistory(entries: HistoryEntry[]): ChatMessage[] {
-  return entries
-    .map((e, i): ChatMessage | null => {
-      const role = e.role === "user" || e.role === "assistant" || e.role === "system" ? e.role : null;
-      if (!role) return null;
-      const text = e.text ?? e.content ?? "";
-      if (!text.trim()) return null;
-      return { id: e.id ?? `hist-${i}`, role, text };
-    })
-    .filter((m): m is ChatMessage => m !== null);
-}
-
-function makeId() {
-  return `m-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }

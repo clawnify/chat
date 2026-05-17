@@ -271,6 +271,48 @@ pre {
   background: var(--bg-elev-2);
   font-style: italic;
 }
+.msg-error .msg-text {
+  border-color: var(--error);
+  color: var(--error);
+}
+.msg-optimistic .msg-text {
+  opacity: 0.6;
+}
+
+/* --- action pills (stage 1: text-only, stage 2: icons) --- */
+.action {
+  align-self: flex-start;
+  max-width: 80%;
+}
+.action-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+  cursor: default;
+}
+.action-icon {
+  color: var(--accent);
+  font-size: 10px;
+}
+.action-text {
+  max-width: 480px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.action-err {
+  color: var(--error);
+  font-size: 11px;
+  border-left: 1px solid var(--border);
+  padding-left: 6px;
+}
 
 .chat-error {
   background: var(--bg-elev-2);
