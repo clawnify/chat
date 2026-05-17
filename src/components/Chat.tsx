@@ -8,6 +8,9 @@ import {
 } from "../lib/protocol";
 import { ActionGroup } from "./ActionGroup";
 import { ApprovalCard } from "./ApprovalCard";
+import { AssistantMessage } from "./AssistantMessage";
+import { SlashMenu, filterCommands } from "./SlashMenu";
+import type { SlashCommand } from "../lib/protocol";
 
 /**
  * Stage 1 of the rich port: history fetch + four-role rendering using the new
@@ -19,6 +22,7 @@ export function Chat({ gw }: { gw: GatewayWs }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([]);
   const [input, setInput] = useState("");
+  const [slashIdx, setSlashIdx] = useState(0);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -206,11 +210,16 @@ export function Chat({ gw }: { gw: GatewayWs }) {
     const text = input.trim();
     if (!text || sending) return;
 
+    // /stop is intercepted locally — gateway has no /stop verb, it's a UI alias.
+    if (text === "/stop") {
+      setInput("");
+      return abort();
+    }
+
     setInput("");
     setSending(true);
     setError(null);
 
-    // Optimistic user bubble — replaced when history refetch completes.
     setMessages((prev) => [
       ...prev,
       { role: "user", content: text, optimistic: true },
@@ -227,6 +236,22 @@ export function Chat({ gw }: { gw: GatewayWs }) {
     }
   }
 
+  function completeSlash(cmd: SlashCommand) {
+    if (cmd.autoSend) {
+      setInput("");
+      if (cmd.name === "/stop") return abort();
+      gw.request("chat.send", {
+        text: cmd.name,
+        idempotencyKey: `clw-${Date.now()}`,
+      }).catch((err) =>
+        setError(err instanceof Error ? err.message : String(err)),
+      );
+    } else {
+      setInput(cmd.name + " ");
+    }
+    setSlashIdx(0);
+  }
+
   async function abort() {
     try {
       await gw.request("chat.abort", {});
@@ -240,6 +265,33 @@ export function Chat({ gw }: { gw: GatewayWs }) {
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    const slashCandidates = filterCommands(input);
+    const slashOpen = input.startsWith("/") && slashCandidates.length > 0;
+
+    if (slashOpen) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSlashIdx((i) => Math.min(i + 1, slashCandidates.length - 1));
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSlashIdx((i) => Math.max(i - 1, 0));
+        return;
+      }
+      if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey)) {
+        e.preventDefault();
+        const cmd = slashCandidates[slashIdx];
+        if (cmd) completeSlash(cmd);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setInput("");
+        return;
+      }
+    }
+
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       send();
@@ -282,11 +334,15 @@ export function Chat({ gw }: { gw: GatewayWs }) {
       {error && <div className="chat-error">{error}</div>}
 
       <div className="composer">
+        <SlashMenu filter={input} selectedIdx={slashIdx} onSelect={completeSlash} />
         <textarea
           value={input}
-          onChange={(e) => setInput(e.currentTarget.value)}
+          onChange={(e) => {
+            setInput(e.currentTarget.value);
+            setSlashIdx(0);
+          }}
           onKeyDown={onKeyDown}
-          placeholder="Message the agent…"
+          placeholder="Message the agent… (try /help)"
           rows={3}
           disabled={sending}
         />
@@ -344,7 +400,19 @@ function MessageRow({ msg }: { msg: Message }) {
   return (
     <div className={className}>
       <div className="msg-role">{msg.role}</div>
-      <div className="msg-text">{msg.content || (msg.streaming ? "…" : "")}</div>
+      {msg.role === "assistant" ? (
+        <div className="msg-text">
+          <AssistantMessage
+            content={msg.content}
+            thinking={msg.thinking}
+            streaming={msg.streaming}
+          />
+        </div>
+      ) : (
+        <div className="msg-text">
+          {msg.content || (msg.streaming ? "…" : "")}
+        </div>
+      )}
     </div>
   );
 }
