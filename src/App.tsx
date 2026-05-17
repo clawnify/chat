@@ -8,16 +8,18 @@ import {
   saveToken,
   type DetectedGateway,
 } from "@/lib/config";
-import { cn } from "@/lib/utils";
 import { Settings } from "@/components/Settings";
 import { Chat } from "@/components/Chat";
 import { DetectedGatewayCard } from "@/components/DetectedGatewayCard";
+import { SessionsSidebar } from "@/components/SessionsSidebar";
 
 type ConnState =
   | { kind: "idle" }
   | { kind: "connecting" }
   | { kind: "connected" }
   | { kind: "error"; message: string; pairingRequired?: boolean };
+
+const DEFAULT_SESSION_KEY = "agent:main:main";
 
 export function App() {
   const [gatewayUrl, setGatewayUrl] = useState<string | null>(null);
@@ -26,6 +28,7 @@ export function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [detected, setDetected] = useState<DetectedGateway | null>(null);
   const [detectionResolved, setDetectionResolved] = useState(false);
+  const [sessionKey, setSessionKey] = useState<string>(DEFAULT_SESSION_KEY);
   const gwRef = useRef<GatewayWs | null>(null);
 
   useEffect(() => {
@@ -87,76 +90,71 @@ export function App() {
     setConn({ kind: "idle" });
   }
 
-  return (
-    <div className="flex h-full flex-col mx-auto max-w-3xl">
-      <header className="flex items-center justify-between px-5 py-3 border-b">
-        <div className="flex items-center gap-3">
-          <span className="font-mono font-medium">clawnify/chat</span>
-          <ConnBadge state={conn} />
-        </div>
-        <button
-          type="button"
-          onClick={() => setShowSettings((s) => !s)}
-          className="px-3 py-1.5 rounded-md text-sm bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
-        >
-          Settings
-        </button>
-      </header>
+  function handleNewSession() {
+    const gw = gwRef.current;
+    if (!gw) return;
+    // sessions.reset clears the current session's transcript and starts the
+    // startup sequence again. Full multi-session creation needs upstream
+    // sessions.create semantics — deferred.
+    gw.request("sessions.reset", { key: sessionKey, reason: "new" }).catch(() => {
+      // Best effort.
+    });
+  }
 
-      {showSettings ? (
+  // Setup / connection screens — full-width, no sidebar yet.
+  if (showSettings) {
+    return (
+      <div className="h-full flex flex-col mx-auto max-w-2xl">
         <Settings
           initialUrl={gatewayUrl ?? ""}
           initialToken={token ?? ""}
           onSave={handleSave}
           onCancel={() => setShowSettings(false)}
         />
-      ) : detected && !gatewayUrl && !token ? (
-        <DetectedGatewayCard
-          detected={detected}
-          onConnect={(url, tok) => {
-            setDetected(null);
-            setGatewayUrl(url);
-            setToken(tok);
-            setConn({ kind: "idle" });
-          }}
-          onUseSettings={() => {
-            setDetected(null);
-            setShowSettings(true);
-          }}
-        />
-      ) : !detectionResolved ? (
-        <EmptyState title="Looking for a local gateway…" />
-      ) : conn.kind === "connected" && gwRef.current ? (
-        <Chat gw={gwRef.current} />
-      ) : (
-        <ConnStatus state={conn} onOpenSettings={() => setShowSettings(true)} />
-      )}
-    </div>
-  );
-}
+      </div>
+    );
+  }
 
-function ConnBadge({ state }: { state: ConnState }) {
-  const labels: Record<ConnState["kind"], string> = {
-    idle: "idle",
-    connecting: "connecting…",
-    connected: "connected",
-    error: "error",
-  };
-  const tone: Record<ConnState["kind"], string> = {
-    idle: "text-muted-foreground border-border",
-    connecting: "text-amber-500 border-amber-500/40",
-    connected: "text-emerald-500 border-emerald-500/40",
-    error: "text-destructive border-destructive/40",
-  };
+  if (detected && !gatewayUrl && !token) {
+    return (
+      <DetectedGatewayCard
+        detected={detected}
+        onConnect={(url, tok) => {
+          setDetected(null);
+          setGatewayUrl(url);
+          setToken(tok);
+          setConn({ kind: "idle" });
+        }}
+        onUseSettings={() => {
+          setDetected(null);
+          setShowSettings(true);
+        }}
+      />
+    );
+  }
+
+  if (!detectionResolved) {
+    return <EmptyState title="Looking for a local gateway…" />;
+  }
+
+  if (conn.kind !== "connected" || !gwRef.current) {
+    return (
+      <ConnStatus state={conn} onOpenSettings={() => setShowSettings(true)} />
+    );
+  }
+
+  // Connected — two-column layout matches the reference design.
   return (
-    <span
-      className={cn(
-        "text-xs px-2 py-0.5 rounded-full border",
-        tone[state.kind],
-      )}
-    >
-      {labels[state.kind]}
-    </span>
+    <div className="h-full flex">
+      <SessionsSidebar
+        gw={gwRef.current}
+        activeKey={sessionKey}
+        onSelect={setSessionKey}
+        onNew={handleNewSession}
+        onOpenSettings={() => setShowSettings(true)}
+      />
+      <Chat gw={gwRef.current} sessionKey={sessionKey} />
+    </div>
   );
 }
 
@@ -168,7 +166,7 @@ function EmptyState({
   children?: React.ReactNode;
 }) {
   return (
-    <main className="flex-1 flex flex-col items-center justify-center gap-3 p-10 text-center">
+    <main className="h-full flex flex-col items-center justify-center gap-3 p-10 text-center">
       <h2 className="text-base font-medium">{title}</h2>
       {children}
     </main>
@@ -198,9 +196,7 @@ function ConnStatus({
       </EmptyState>
     );
   }
-  if (state.kind === "connecting") {
-    return <EmptyState title="Connecting…" />;
-  }
+  if (state.kind === "connecting") return <EmptyState title="Connecting…" />;
   if (state.kind === "error") {
     return (
       <EmptyState title="Couldn’t connect">

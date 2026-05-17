@@ -13,13 +13,16 @@ import { ActionGroup } from "@/components/ActionGroup";
 import { ApprovalCard } from "@/components/ApprovalCard";
 import { AssistantMessage } from "@/components/AssistantMessage";
 import { SlashMenu, filterCommands } from "@/components/SlashMenu";
+import { ArrowUp, Square } from "lucide-react";
 
-// Default session key for the gateway's main agent. Matches upstream's
-// canonical name (docs/openclaw/cli/acp.md and ...plugins/webhooks.md). A
-// future stage can add a session picker; for now we hard-code the default.
-const SESSION_KEY = "agent:main:main";
-
-export function Chat({ gw }: { gw: GatewayWs }) {
+export function Chat({
+  gw,
+  sessionKey,
+}: {
+  gw: GatewayWs;
+  sessionKey: string;
+}) {
+  const SESSION_KEY = sessionKey;
   const [messages, setMessages] = useState<Message[]>([]);
   const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([]);
   const [input, setInput] = useState("");
@@ -334,12 +337,24 @@ export function Chat({ gw }: { gw: GatewayWs }) {
   }
 
   const renderItems = useMemo(() => groupForRender(messages), [messages]);
+  const [composerFocused, setComposerFocused] = useState(false);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  function autoResize() {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 200) + "px";
+  }
+
+  const isRunning = sending;
+  const hasContent = input.trim().length > 0;
 
   return (
     <main className="flex-1 flex flex-col min-h-0">
       <div
         ref={listRef}
-        className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3"
+        className="flex-1 overflow-y-auto px-6 py-6 flex flex-col gap-3 max-w-3xl w-full mx-auto"
       >
         {messages.length === 0 && !sending && (
           <div className="m-auto text-sm text-muted-foreground">
@@ -369,7 +384,7 @@ export function Chat({ gw }: { gw: GatewayWs }) {
       </div>
 
       {pendingApprovals.length > 0 && (
-        <div className="border-t bg-muted/30 px-5 py-3 flex flex-col gap-2.5 max-h-[50vh] overflow-y-auto">
+        <div className="bg-muted/30 px-6 py-3 flex flex-col gap-2.5 max-h-[50vh] overflow-y-auto max-w-3xl w-full mx-auto">
           {pendingApprovals.map((a) => (
             <ApprovalCard
               key={a.approvalId}
@@ -381,46 +396,76 @@ export function Chat({ gw }: { gw: GatewayWs }) {
       )}
 
       {error && (
-        <div className="border-t bg-muted/30 px-5 py-2 text-xs text-destructive">
+        <div className="px-6 py-2 text-xs text-destructive max-w-3xl w-full mx-auto">
           {error}
         </div>
       )}
 
-      <div className="border-t px-5 py-3 flex flex-col gap-2">
-        <div className="relative w-full">
-          <SlashMenu filter={input} selectedIdx={slashIdx} onSelect={completeSlash} />
-        </div>
-        <textarea
-          value={input}
-          onChange={(e) => {
-            setInput(e.currentTarget.value);
-            setSlashIdx(0);
-          }}
-          onKeyDown={onKeyDown}
-          placeholder="Message the agent… (try /help)"
-          rows={3}
-          disabled={sending}
-          className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground disabled:opacity-50"
-        />
-        <div className="flex justify-end">
-          {sending ? (
-            <button
-              type="button"
-              onClick={abort}
-              className="px-3 py-1.5 rounded-md text-sm border bg-background text-destructive hover:bg-muted transition-colors"
-            >
-              Stop
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={send}
-              disabled={!input.trim()}
-              className="px-3 py-1.5 rounded-md text-sm bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              Send
-            </button>
-          )}
+      {/* Composer — markup ported from apps/web chat-panel.tsx (Clawnify dashboard).
+          Rounded container with ring, auto-resizing textarea, toolbar at bottom. */}
+      <div className="px-6 pb-6 max-w-3xl w-full mx-auto">
+        <div className="relative">
+          <SlashMenu
+            filter={input}
+            selectedIdx={slashIdx}
+            onSelect={completeSlash}
+          />
+          <div
+            className={cn(
+              "overflow-hidden rounded-xl bg-background shadow-sm ring-1 ring-border/50 transition-all",
+              composerFocused && "ring-border shadow-md",
+            )}
+          >
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={(e) => {
+                setInput(e.currentTarget.value);
+                setSlashIdx(0);
+              }}
+              onInput={autoResize}
+              onKeyDown={onKeyDown}
+              onFocus={() => setComposerFocused(true)}
+              onBlur={() => setComposerFocused(false)}
+              placeholder="Message the agent…"
+              rows={1}
+              disabled={sending}
+              className="w-full resize-none bg-transparent px-4 pt-3.5 pb-2 text-sm outline-none placeholder:text-muted-foreground/70 disabled:opacity-50"
+              style={{ maxHeight: "200px", minHeight: "44px" }}
+            />
+            <div className="flex items-center justify-between px-2.5 pb-2.5">
+              <div className="text-[11px] text-muted-foreground/60 pl-2 font-mono">
+                {SESSION_KEY}
+              </div>
+              <div className="flex items-center gap-1.5">
+                {isRunning ? (
+                  <button
+                    type="button"
+                    onClick={abort}
+                    title="Stop"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/80 text-white hover:bg-destructive transition-colors"
+                  >
+                    <Square size={12} strokeWidth={2.5} />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={send}
+                    disabled={!hasContent}
+                    title="Send"
+                    className={cn(
+                      "flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
+                      hasContent
+                        ? "bg-foreground text-background hover:bg-foreground/90"
+                        : "bg-muted/60 text-muted-foreground/40 cursor-default",
+                    )}
+                  >
+                    <ArrowUp size={16} strokeWidth={2.5} />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </main>
@@ -473,11 +518,10 @@ function MessageRow({ msg }: { msg: Message }) {
   return (
     <div
       className={cn(
-        "max-w-[85%] rounded-lg px-3 py-2 text-sm",
+        "rounded-2xl px-4 py-2 text-sm",
         isUser
-          ? "self-end bg-primary text-primary-foreground"
-          : "self-start",
-        !isUser && msg.role === "assistant" && "bg-transparent",
+          ? "self-end max-w-[80%] bg-muted text-foreground"
+          : "self-start max-w-full w-full bg-transparent text-foreground",
         msg.optimistic && "opacity-60",
         msg.errorType && "border border-destructive text-destructive bg-destructive/5",
       )}
