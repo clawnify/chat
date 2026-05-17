@@ -1,15 +1,9 @@
 import { useState } from "react";
 import { ChevronRight, Loader2 } from "lucide-react";
-import type { Message } from "../lib/protocol";
-import { ActionIcon, actionLabel } from "../lib/actions";
+import type { Message } from "@/lib/protocol";
+import { ActionIcon, actionLabel } from "@/lib/actions";
+import { cn } from "@/lib/utils";
 
-/**
- * Collapsible pill summarizing a run of consecutive tool actions.
- *
- * Click to expand → shows one mini-pill per action, each with the tool icon
- * and a `title` attribute carrying the full label (native browser tooltip;
- * no shadcn Tooltip dep).
- */
 export function ActionGroup({
   actions,
   anyPending,
@@ -22,30 +16,38 @@ export function ActionGroup({
   const hasError = actions.some((a) => a.toolError);
 
   return (
-    <div className="actiongroup">
+    <div className="self-start flex flex-col gap-1.5">
       <button
         type="button"
         onClick={() => setExpanded((e) => !e)}
-        className={`actiongroup-pill${hasError ? " has-error" : ""}${
-          anyPending ? " is-pending" : ""
-        }`}
+        className={cn(
+          "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border bg-muted/50 text-xs text-muted-foreground transition-colors hover:bg-muted",
+          hasError && "border-destructive/40 text-destructive bg-destructive/5",
+          anyPending && "animate-pulse",
+        )}
       >
         <ActionIcon toolName={latest.toolName ?? "tool"} args={latest.content} />
-        {anyPending && <Loader2 size={10} className="spin" />}
-        <span className="actiongroup-count">{actions.length}</span>
+        {anyPending && <Loader2 size={10} className="animate-spin" />}
+        <span className="tabular-nums opacity-70">{actions.length}</span>
         <ChevronRight
           size={12}
-          className={`actiongroup-chev${expanded ? " is-open" : ""}`}
+          className={cn(
+            "opacity-50 transition-transform",
+            expanded && "rotate-90",
+          )}
         />
       </button>
 
       {expanded && (
-        <div className="actiongroup-list">
+        <div className="flex flex-wrap gap-1.5">
           {actions.map((a, j) => (
             <div
               key={j}
-              className={`actiongroup-item${a.toolError ? " has-error" : ""}`}
               title={actionLabel(a.toolName ?? "tool", a.content)}
+              className={cn(
+                "inline-flex items-center gap-1 px-2 py-1 rounded-full border bg-muted/50 text-muted-foreground",
+                a.toolError && "border-destructive/40 text-destructive bg-destructive/5",
+              )}
             >
               <ActionIcon toolName={a.toolName ?? "tool"} args={a.content} />
             </div>

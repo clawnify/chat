@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { GatewayWs, PairingRequiredError } from "./lib/gateway-ws";
+import { GatewayWs, PairingRequiredError } from "@/lib/gateway-ws";
 import {
   bootstrapConfig,
   clearToken,
@@ -7,10 +7,11 @@ import {
   saveGatewayUrl,
   saveToken,
   type DetectedGateway,
-} from "./lib/config";
-import { Settings } from "./components/Settings";
-import { Chat } from "./components/Chat";
-import { DetectedGatewayCard } from "./components/DetectedGatewayCard";
+} from "@/lib/config";
+import { cn } from "@/lib/utils";
+import { Settings } from "@/components/Settings";
+import { Chat } from "@/components/Chat";
+import { DetectedGatewayCard } from "@/components/DetectedGatewayCard";
 
 type ConnState =
   | { kind: "idle" }
@@ -27,9 +28,6 @@ export function App() {
   const [detectionResolved, setDetectionResolved] = useState(false);
   const gwRef = useRef<GatewayWs | null>(null);
 
-  // Bootstrap on mount: load saved config + offer a local-gateway detection
-  // when no saved config exists. Detection is an explicit consent step — we
-  // never auto-connect.
   useEffect(() => {
     const cfg = bootstrapConfig();
     setGatewayUrl(cfg.gatewayUrl);
@@ -44,14 +42,12 @@ export function App() {
       if (res && res.detected && res.hasToken && res.token) {
         setDetected(res);
       } else {
-        // Nothing usable to offer — fall through to manual settings.
         setShowSettings(true);
       }
       setDetectionResolved(true);
     });
   }, []);
 
-  // Connect when we have both
   useEffect(() => {
     if (!gatewayUrl || !token) return;
     if (conn.kind === "connecting" || conn.kind === "connected") return;
@@ -78,7 +74,6 @@ export function App() {
       gw.disconnect();
       gwRef.current = null;
     };
-    // Only reconnect when the credentials themselves change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gatewayUrl, token]);
 
@@ -93,13 +88,17 @@ export function App() {
   }
 
   return (
-    <div className="app">
-      <header className="topbar">
-        <div className="topbar-left">
-          <span className="logo">clawnify/chat</span>
+    <div className="flex h-full flex-col mx-auto max-w-3xl">
+      <header className="flex items-center justify-between px-5 py-3 border-b">
+        <div className="flex items-center gap-3">
+          <span className="font-mono font-medium">clawnify/chat</span>
           <ConnBadge state={conn} />
         </div>
-        <button className="settings-btn" onClick={() => setShowSettings((s) => !s)}>
+        <button
+          type="button"
+          onClick={() => setShowSettings((s) => !s)}
+          className="px-3 py-1.5 rounded-md text-sm bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
+        >
           Settings
         </button>
       </header>
@@ -115,9 +114,6 @@ export function App() {
         <DetectedGatewayCard
           detected={detected}
           onConnect={(url, tok) => {
-            // Honor the no-silent-config rule: don't write to localStorage
-            // when the source of truth is the user's openclaw.json. Re-detect
-            // on every reload.
             setDetected(null);
             setGatewayUrl(url);
             setToken(tok);
@@ -129,9 +125,7 @@ export function App() {
           }}
         />
       ) : !detectionResolved ? (
-        <main className="empty">
-          <h2>Looking for a local gateway…</h2>
-        </main>
+        <EmptyState title="Looking for a local gateway…" />
       ) : conn.kind === "connected" && gwRef.current ? (
         <Chat gw={gwRef.current} />
       ) : (
@@ -148,39 +142,86 @@ function ConnBadge({ state }: { state: ConnState }) {
     connected: "connected",
     error: "error",
   };
-  return <span className={`badge badge-${state.kind}`}>{labels[state.kind]}</span>;
+  const tone: Record<ConnState["kind"], string> = {
+    idle: "text-muted-foreground border-border",
+    connecting: "text-amber-500 border-amber-500/40",
+    connected: "text-emerald-500 border-emerald-500/40",
+    error: "text-destructive border-destructive/40",
+  };
+  return (
+    <span
+      className={cn(
+        "text-xs px-2 py-0.5 rounded-full border",
+        tone[state.kind],
+      )}
+    >
+      {labels[state.kind]}
+    </span>
+  );
 }
 
-function ConnStatus({ state, onOpenSettings }: { state: ConnState; onOpenSettings: () => void }) {
+function EmptyState({
+  title,
+  children,
+}: {
+  title: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <main className="flex-1 flex flex-col items-center justify-center gap-3 p-10 text-center">
+      <h2 className="text-base font-medium">{title}</h2>
+      {children}
+    </main>
+  );
+}
+
+function ConnStatus({
+  state,
+  onOpenSettings,
+}: {
+  state: ConnState;
+  onOpenSettings: () => void;
+}) {
   if (state.kind === "idle") {
     return (
-      <main className="empty">
-        <h2>No gateway configured</h2>
-        <p>Set the gateway URL and shared-secret token to start chatting.</p>
-        <button onClick={onOpenSettings}>Open settings</button>
-      </main>
+      <EmptyState title="No gateway configured">
+        <p className="text-sm text-muted-foreground max-w-md">
+          Set the gateway URL and shared-secret token to start chatting.
+        </p>
+        <button
+          type="button"
+          onClick={onOpenSettings}
+          className="px-3 py-1.5 rounded-md text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+        >
+          Open settings
+        </button>
+      </EmptyState>
     );
   }
   if (state.kind === "connecting") {
-    return (
-      <main className="empty">
-        <h2>Connecting…</h2>
-      </main>
-    );
+    return <EmptyState title="Connecting…" />;
   }
   if (state.kind === "error") {
     return (
-      <main className="empty">
-        <h2>Couldn’t connect</h2>
-        <pre className="error-detail">{state.message}</pre>
+      <EmptyState title="Couldn’t connect">
+        <pre className="max-w-md text-left text-xs text-destructive bg-muted p-3 rounded-md whitespace-pre-wrap break-all">
+          {state.message}
+        </pre>
         {state.pairingRequired && (
-          <p>
-            This browser hasn’t been paired with the gateway. On the gateway host run{" "}
-            <code>openclaw devices list</code> then <code>openclaw devices approve &lt;id&gt;</code>.
+          <p className="text-sm text-muted-foreground max-w-md">
+            This browser hasn’t been paired with the gateway. On the gateway
+            host run <code className="px-1 bg-muted rounded">openclaw devices list</code>{" "}
+            then <code className="px-1 bg-muted rounded">openclaw devices approve &lt;id&gt;</code>.
           </p>
         )}
-        <button onClick={onOpenSettings}>Edit settings</button>
-      </main>
+        <button
+          type="button"
+          onClick={onOpenSettings}
+          className="px-3 py-1.5 rounded-md text-sm bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
+        >
+          Edit settings
+        </button>
+      </EmptyState>
     );
   }
   return null;

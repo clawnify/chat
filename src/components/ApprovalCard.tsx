@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Ban, Check, Loader2 } from "lucide-react";
-import type { PendingApproval } from "../lib/protocol";
+import type { PendingApproval } from "@/lib/protocol";
+import { cn } from "@/lib/utils";
 
 type Decision = "allow-once" | "allow-always" | "deny";
 const DECISIONS: readonly Decision[] = ["allow-once", "allow-always", "deny"] as const;
@@ -22,12 +23,10 @@ export function ApprovalCard({
     (approval.expiresAt != null && Date.now() > approval.expiresAt);
   const isPending = approval.status === "pending" && !isExpired;
 
-  // Auto-focus approve when card mounts pending.
   useEffect(() => {
     if (isPending) approveRef.current?.focus();
   }, [isPending]);
 
-  // Recompute expiry every 30s while pending.
   useEffect(() => {
     if (!isPending || !approval.expiresAt) return;
     const id = setInterval(() => setTick((t) => t + 1), 30_000);
@@ -65,84 +64,85 @@ export function ApprovalCard({
     description.length > 240 ? description.slice(0, 240) + "..." : description;
 
   return (
-    <div className={`approval${isExpired ? " is-expired" : ""}`}>
+    <div
+      className={cn(
+        "rounded-xl border bg-muted/30 px-4 py-3 flex flex-col gap-2.5 text-sm",
+        isExpired && "opacity-60",
+      )}
+    >
       {isPlugin ? (
-        <div className="approval-body">
-          <div className="approval-title">
+        <div className="flex flex-col gap-1.5">
+          <div className="text-sm font-medium leading-snug">
             {approval.title ?? approval.toolName ?? "Approval required"}
           </div>
           {descriptionDisplay && (
-            <div className="approval-desc">{descriptionDisplay}</div>
+            <div className="text-xs text-muted-foreground whitespace-pre-wrap break-words">
+              {descriptionDisplay}
+            </div>
           )}
         </div>
       ) : (
-        <div className="approval-cmd">
-          <span className="approval-cmd-prompt">$ </span>
+        <div className="font-mono text-xs text-muted-foreground break-all">
+          <span className="opacity-50 select-none">$ </span>
           {commandDisplay}
         </div>
       )}
 
-      <div className="approval-actions">
+      <div className="flex flex-wrap items-center gap-2">
         {isExpired ? (
-          <span className="approval-pill">
+          <Pill>
             <Ban size={12} /> Expired
-          </span>
+          </Pill>
         ) : isPending ? (
           <>
-            <button
+            <PillButton
               ref={approveRef}
-              type="button"
-              className="approval-pill approval-btn"
               disabled={resolving !== null}
               onClick={() => click("allow-once")}
               onKeyDown={onKey}
               onFocus={() => setSelectedIdx(0)}
             >
               {resolving === "allow-once" ? (
-                <Loader2 size={12} className="spin" />
+                <Loader2 size={12} className="animate-spin" />
               ) : (
                 <Check size={12} />
               )}
               Approve
-            </button>
-            <button
-              type="button"
-              className="approval-pill approval-btn"
+            </PillButton>
+            <PillButton
               disabled={resolving !== null}
               onClick={() => click("allow-always")}
               onKeyDown={onKey}
               onFocus={() => setSelectedIdx(1)}
             >
               {resolving === "allow-always" ? (
-                <Loader2 size={12} className="spin" />
+                <Loader2 size={12} className="animate-spin" />
               ) : (
                 <Check size={12} />
               )}
               Always
-            </button>
-            <button
-              type="button"
-              className="approval-pill approval-btn"
+            </PillButton>
+            <PillButton
               disabled={resolving !== null}
               onClick={() => click("deny")}
               onKeyDown={onKey}
               onFocus={() => setSelectedIdx(2)}
             >
               {resolving === "deny" ? (
-                <Loader2 size={12} className="spin" />
+                <Loader2 size={12} className="animate-spin" />
               ) : (
                 <Ban size={12} />
               )}
               Deny
-            </button>
+            </PillButton>
             {approval.expiresAt && (
-              <span className="approval-expiry">
+              <span className="ml-auto text-[10px] text-muted-foreground/60">
                 {Math.max(0, Math.ceil((approval.expiresAt - Date.now()) / 60_000))}m
               </span>
             )}
           </>
         ) : (
-          <span className="approval-pill">
+          <Pill>
             {approval.status === "deny" ? (
               <>
                 <Ban size={12} /> Denied
@@ -153,9 +153,39 @@ export function ApprovalCard({
                 {approval.status === "allow-always" ? "Always" : "Approved"}
               </>
             )}
-          </span>
+          </Pill>
         )}
       </div>
     </div>
   );
 }
+
+function Pill({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border bg-muted/50 text-xs font-medium text-muted-foreground">
+      {children}
+    </span>
+  );
+}
+
+const PillButton = function PillButton(
+  props: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+    ref?: React.Ref<HTMLButtonElement>;
+  },
+) {
+  const { className, ref, ...rest } = props;
+  return (
+    <button
+      ref={ref}
+      type="button"
+      {...rest}
+      className={cn(
+        "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border bg-muted/50 text-xs font-medium text-muted-foreground transition-colors",
+        "hover:bg-muted hover:text-foreground hover:border-foreground/30 cursor-pointer",
+        "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+        "disabled:opacity-50 disabled:cursor-not-allowed",
+        className,
+      )}
+    />
+  );
+};

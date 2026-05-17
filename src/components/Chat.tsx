@@ -1,23 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { GatewayEvent, GatewayWs } from "../lib/gateway-ws";
+import type { GatewayEvent, GatewayWs } from "@/lib/gateway-ws";
 import {
   parseApprovalFromToolResult,
   parseHistory,
   type Message,
   type PendingApproval,
-} from "../lib/protocol";
-import { ActionGroup } from "./ActionGroup";
-import { ApprovalCard } from "./ApprovalCard";
-import { AssistantMessage } from "./AssistantMessage";
-import { SlashMenu, filterCommands } from "./SlashMenu";
-import type { SlashCommand } from "../lib/protocol";
+  type SlashCommand,
+} from "@/lib/protocol";
+import { cn } from "@/lib/utils";
+import { ActionGroup } from "@/components/ActionGroup";
+import { ApprovalCard } from "@/components/ApprovalCard";
+import { AssistantMessage } from "@/components/AssistantMessage";
+import { SlashMenu, filterCommands } from "@/components/SlashMenu";
 
-/**
- * Stage 1 of the rich port: history fetch + four-role rendering using the new
- * pure parser in src/lib/protocol.ts. Streaming behavior is still naive (delta
- * → append, end → refetch). Tool-event cards, approval cards, action grouping,
- * thinking display, and slash commands land in later stages.
- */
 export function Chat({ gw }: { gw: GatewayWs }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([]);
@@ -34,8 +29,6 @@ export function Chat({ gw }: { gw: GatewayWs }) {
       const parsed = parseHistory(payload);
       setMessages(parsed);
 
-      // Hydrate exec approvals from tool results — canonical path per memory.
-      // Plugin approvals come exclusively via WS events (toolCallId on event).
       setPendingApprovals((prev) => {
         const existing = new Set(prev.map((a) => a.approvalId));
         const fromHistory: PendingApproval[] = [];
@@ -54,7 +47,6 @@ export function Chat({ gw }: { gw: GatewayWs }) {
 
   const resolveApproval = useCallback(
     async (approvalId: string, decision: "allow-once" | "allow-always" | "deny") => {
-      // Plugin approval ids carry a "plugin:" prefix; everything else is exec.
       const method = approvalId.startsWith("plugin:")
         ? "plugin.approval.resolve"
         : "exec.approval.resolve";
@@ -174,7 +166,6 @@ export function Chat({ gw }: { gw: GatewayWs }) {
   function applyChatEvent(payload: ChatEventPayload | undefined) {
     if (!payload) return;
 
-    // Streaming assistant text — append to or create the in-flight bubble.
     if (payload.kind === "delta" && typeof payload.text === "string") {
       setMessages((prev) => {
         const idx = streamingIdxRef.current;
@@ -197,8 +188,6 @@ export function Chat({ gw }: { gw: GatewayWs }) {
       return;
     }
 
-    // Run finished — refetch history so we get the authoritative final state
-    // including action/toolResult correlation that streaming deltas don't carry.
     if (payload.kind === "end" || payload.kind === "complete") {
       streamingIdxRef.current = null;
       setSending(false);
@@ -210,7 +199,6 @@ export function Chat({ gw }: { gw: GatewayWs }) {
     const text = input.trim();
     if (!text || sending) return;
 
-    // /stop is intercepted locally — gateway has no /stop verb, it's a UI alias.
     if (text === "/stop") {
       setInput("");
       return abort();
@@ -301,10 +289,15 @@ export function Chat({ gw }: { gw: GatewayWs }) {
   const renderItems = useMemo(() => groupForRender(messages), [messages]);
 
   return (
-    <main className="chat">
-      <div className="messages" ref={listRef}>
+    <main className="flex-1 flex flex-col min-h-0">
+      <div
+        ref={listRef}
+        className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3"
+      >
         {messages.length === 0 && !sending && (
-          <div className="messages-empty">No messages yet. Say hi.</div>
+          <div className="m-auto text-sm text-muted-foreground">
+            No messages yet. Say hi.
+          </div>
         )}
         {renderItems.map((item, i) =>
           item.kind === "msg" ? (
@@ -320,7 +313,7 @@ export function Chat({ gw }: { gw: GatewayWs }) {
       </div>
 
       {pendingApprovals.length > 0 && (
-        <div className="approvals">
+        <div className="border-t bg-muted/30 px-5 py-3 flex flex-col gap-2.5 max-h-[50vh] overflow-y-auto">
           {pendingApprovals.map((a) => (
             <ApprovalCard
               key={a.approvalId}
@@ -331,10 +324,16 @@ export function Chat({ gw }: { gw: GatewayWs }) {
         </div>
       )}
 
-      {error && <div className="chat-error">{error}</div>}
+      {error && (
+        <div className="border-t bg-muted/30 px-5 py-2 text-xs text-destructive">
+          {error}
+        </div>
+      )}
 
-      <div className="composer">
-        <SlashMenu filter={input} selectedIdx={slashIdx} onSelect={completeSlash} />
+      <div className="border-t px-5 py-3 flex flex-col gap-2">
+        <div className="relative w-full">
+          <SlashMenu filter={input} selectedIdx={slashIdx} onSelect={completeSlash} />
+        </div>
         <textarea
           value={input}
           onChange={(e) => {
@@ -345,14 +344,24 @@ export function Chat({ gw }: { gw: GatewayWs }) {
           placeholder="Message the agent… (try /help)"
           rows={3}
           disabled={sending}
+          className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground disabled:opacity-50"
         />
-        <div className="composer-actions">
+        <div className="flex justify-end">
           {sending ? (
-            <button type="button" onClick={abort} className="abort">
+            <button
+              type="button"
+              onClick={abort}
+              className="px-3 py-1.5 rounded-md text-sm border bg-background text-destructive hover:bg-muted transition-colors"
+            >
               Stop
             </button>
           ) : (
-            <button type="button" onClick={send} disabled={!input.trim()}>
+            <button
+              type="button"
+              onClick={send}
+              disabled={!input.trim()}
+              className="px-3 py-1.5 rounded-md text-sm bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
               Send
             </button>
           )}
@@ -366,7 +375,6 @@ type RenderItem =
   | { kind: "msg"; msg: Message }
   | { kind: "actions"; actions: Message[] };
 
-/** Collapse runs of consecutive action messages into a single ActionGroup. */
 function groupForRender(messages: Message[]): RenderItem[] {
   const items: RenderItem[] = [];
   let buf: Message[] = [];
@@ -388,31 +396,50 @@ function groupForRender(messages: Message[]): RenderItem[] {
 function MessageRow({ msg }: { msg: Message }) {
   if (msg.role === "system") {
     return (
-      <div className="msg msg-system">
-        <div className="msg-role">system</div>
-        <div className="msg-text">{msg.content}</div>
+      <div className="self-start max-w-[80%]">
+        <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+          system
+        </div>
+        <div className="bg-muted/50 italic rounded-lg px-3 py-2 text-sm">
+          {msg.content}
+        </div>
       </div>
     );
   }
-  const className = `msg msg-${msg.role}${msg.errorType ? " msg-error" : ""}${
-    msg.optimistic ? " msg-optimistic" : ""
-  }`;
+
+  const isUser = msg.role === "user";
   return (
-    <div className={className}>
-      <div className="msg-role">{msg.role}</div>
-      {msg.role === "assistant" ? (
-        <div className="msg-text">
+    <div
+      className={cn(
+        "flex flex-col gap-1 max-w-[80%]",
+        isUser ? "self-end items-end" : "self-start items-start",
+        msg.optimistic && "opacity-60",
+      )}
+    >
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+        {msg.role}
+      </div>
+      <div
+        className={cn(
+          "rounded-lg px-3 py-2 text-sm",
+          isUser
+            ? "bg-primary text-primary-foreground"
+            : "bg-card border",
+          msg.errorType && "border-destructive text-destructive bg-destructive/5",
+        )}
+      >
+        {msg.role === "assistant" ? (
           <AssistantMessage
             content={msg.content}
             thinking={msg.thinking}
             streaming={msg.streaming}
           />
-        </div>
-      ) : (
-        <div className="msg-text">
-          {msg.content || (msg.streaming ? "…" : "")}
-        </div>
-      )}
+        ) : (
+          <div className="whitespace-pre-wrap break-words">
+            {msg.content || (msg.streaming ? "…" : "")}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -22,10 +22,20 @@ export function Settings({
   }
 
   return (
-    <main className="settings">
-      <form onSubmit={submit}>
-        <label className="field">
-          <span className="field-label">Gateway URL</span>
+    <main className="flex-1 overflow-y-auto p-8">
+      <form onSubmit={submit} className="mx-auto max-w-xl flex flex-col gap-5">
+        <Field
+          label="Gateway URL"
+          hint={
+            <>
+              Accepts <code className="px-1 bg-muted rounded">ws://</code>,{" "}
+              <code className="px-1 bg-muted rounded">wss://</code>,{" "}
+              <code className="px-1 bg-muted rounded">http://</code>,{" "}
+              <code className="px-1 bg-muted rounded">https://</code>, or a
+              bare <code className="px-1 bg-muted rounded">host:port</code>.
+            </>
+          }
+        >
           <input
             type="text"
             value={url}
@@ -33,47 +43,80 @@ export function Settings({
             placeholder="ws://127.0.0.1:18789"
             autoFocus
             spellCheck={false}
+            className={inputClass}
           />
-          <span className="field-hint">
-            Accepts <code>ws://</code>, <code>wss://</code>, <code>http://</code>, <code>https://</code>, or a bare
-            <code>host:port</code>.
-          </span>
-        </label>
+        </Field>
 
-        <label className="field">
-          <span className="field-label">Gateway token</span>
+        <Field
+          label="Gateway token"
+          hint={
+            <>
+              Configured in your gateway’s{" "}
+              <code className="px-1 bg-muted rounded">~/.openclaw/openclaw.json</code>{" "}
+              under <code className="px-1 bg-muted rounded">gateway.auth.token</code>.
+            </>
+          }
+        >
           <input
             type="password"
             value={token}
             onChange={(e) => setToken(e.currentTarget.value)}
-            placeholder="shared secret from gateway.auth.token"
+            placeholder="shared secret"
             spellCheck={false}
             autoComplete="off"
+            className={inputClass}
           />
-          <span className="field-hint">
-            Configured in the gateway’s <code>~/.openclaw/openclaw.json</code> under{" "}
-            <code>gateway.auth.token</code>.
-          </span>
-        </label>
+        </Field>
 
-        <label className="checkbox">
+        <label className="inline-flex items-center gap-2 text-sm">
           <input
             type="checkbox"
             checked={persistToken}
             onChange={(e) => setPersistToken(e.currentTarget.checked)}
+            className="h-4 w-4 rounded border border-input"
           />
           <span>Remember token in this browser (localStorage)</span>
         </label>
 
-        <div className="actions">
-          <button type="button" onClick={onCancel} className="secondary">
+        <div className="flex justify-end gap-2 pt-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-3 py-1.5 rounded-md text-sm bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
+          >
             Cancel
           </button>
-          <button type="submit" disabled={!url.trim() || !token.trim()}>
+          <button
+            type="submit"
+            disabled={!url.trim() || !token.trim()}
+            className="px-3 py-1.5 rounded-md text-sm bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
             Connect
           </button>
         </div>
       </form>
     </main>
+  );
+}
+
+const inputClass =
+  "w-full bg-background border border-input rounded-md px-3 py-2 text-sm font-mono " +
+  "placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring";
+
+function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="flex flex-col gap-1.5">
+      <span className="text-sm font-medium">{label}</span>
+      {children}
+      {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
+    </label>
   );
 }
