@@ -162,6 +162,7 @@ export function App() {
         onSelect={setSessionKey}
         onNew={handleNewSession}
         onOpenSettings={() => setShowSettings(true)}
+        connState={conn.kind}
       />
       <Chat gw={gwRef.current} sessionKey={sessionKey} />
 

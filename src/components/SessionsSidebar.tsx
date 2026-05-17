@@ -3,6 +3,8 @@ import { Plus, Settings as SettingsIcon } from "lucide-react";
 import type { GatewayWs } from "@/lib/gateway-ws";
 import { cn } from "@/lib/utils";
 
+export type ConnPillState = "idle" | "connecting" | "connected" | "error";
+
 interface SessionEntry {
   key: string;
   title?: string;
@@ -28,12 +30,14 @@ export function SessionsSidebar({
   onSelect,
   onNew,
   onOpenSettings,
+  connState,
 }: {
   gw: GatewayWs;
   activeKey: string;
   onSelect: (key: string) => void;
   onNew: () => void;
   onOpenSettings: () => void;
+  connState: ConnPillState;
 }) {
   const [sessions, setSessions] = useState<SessionEntry[]>([]);
 
@@ -86,14 +90,59 @@ export function SessionsSidebar({
         ))}
       </nav>
 
-      <button
-        type="button"
-        onClick={onOpenSettings}
-        className="border-t px-4 py-3 inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <SettingsIcon size={14} /> Settings
-      </button>
+      <div className="border-t px-3 py-2.5 flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={onOpenSettings}
+          title="Settings"
+          className="h-7 w-7 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+        >
+          <SettingsIcon size={14} />
+        </button>
+        <ConnPill state={connState} onClick={onOpenSettings} />
+      </div>
     </aside>
+  );
+}
+
+function ConnPill({
+  state,
+  onClick,
+}: {
+  state: ConnPillState;
+  onClick: () => void;
+}) {
+  const labels: Record<ConnPillState, string> = {
+    idle: "idle",
+    connecting: "connecting…",
+    connected: "connected",
+    error: "error",
+  };
+  const tone: Record<ConnPillState, string> = {
+    idle: "text-muted-foreground border-border bg-background",
+    connecting: "text-amber-600 dark:text-amber-400 border-amber-500/40 bg-amber-50 dark:bg-amber-950/30",
+    connected: "text-emerald-600 dark:text-emerald-400 border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/30",
+    error: "text-destructive border-destructive/40 bg-destructive/10",
+  };
+  const dotTone: Record<ConnPillState, string> = {
+    idle: "bg-muted-foreground/60",
+    connecting: "bg-amber-500 animate-pulse",
+    connected: "bg-emerald-500",
+    error: "bg-destructive",
+  };
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title="Open connection settings"
+      className={cn(
+        "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] border transition-colors hover:opacity-80",
+        tone[state],
+      )}
+    >
+      <span className={cn("inline-block h-1.5 w-1.5 rounded-full", dotTone[state])} />
+      {labels[state]}
+    </button>
   );
 }
 
