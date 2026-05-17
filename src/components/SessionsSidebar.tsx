@@ -113,10 +113,10 @@ function ConnPill({
   onClick: () => void;
 }) {
   const labels: Record<ConnPillState, string> = {
-    idle: "disconnected",
-    connecting: "connecting…",
-    connected: "connected",
-    error: "failed",
+    idle: "Disconnected",
+    connecting: "Connecting…",
+    connected: "Connected",
+    error: "Failed",
   };
   const tone: Record<ConnPillState, string> = {
     idle: "text-muted-foreground border-border bg-background",
