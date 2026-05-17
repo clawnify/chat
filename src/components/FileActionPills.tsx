@@ -43,7 +43,7 @@ function FilePill({ action }: { action: Message }) {
           )}
         >
           <Icon size={12} className="shrink-0" />
-          <span className="font-mono truncate max-w-[44ch]">{path}</span>
+          <span className="font-mono truncate max-w-[28ch]">{basename(path)}</span>
         </div>
       </TooltipTrigger>
       <TooltipContent side="top">
@@ -51,4 +51,10 @@ function FilePill({ action }: { action: Message }) {
       </TooltipContent>
     </Tooltip>
   );
+}
+
+function basename(path: string): string {
+  const cleaned = path.replace(/\/+$/, "");
+  const idx = cleaned.lastIndexOf("/");
+  return idx >= 0 ? cleaned.slice(idx + 1) : cleaned;
 }
