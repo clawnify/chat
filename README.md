@@ -23,7 +23,7 @@ That's it. The command starts a local static server on
 `http://127.0.0.1:5174/`. Open it in your browser, fill in the gateway URL +
 token, and you're connected.
 
-<img width="577" alt="Auto-detected local OpenClaw gateway" src="https://github.com/user-attachments/assets/4e2c45ec-a700-43ad-ba0e-73ae469d624f" />
+<img width="577" alt="Auto-detected local OpenClaw gateway" src="https://github.com/user-attachments/assets/92550201-2584-4bb8-b231-134d5743e685" />
 
 When run locally, the UI reads `~/.openclaw/openclaw.json` over a
 loopback-only HTTP endpoint and offers a one-click connect. The token
