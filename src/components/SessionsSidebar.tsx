@@ -5,13 +5,19 @@ import { cn } from "@/lib/utils";
 
 export type ConnPillState = "idle" | "connecting" | "connected" | "error";
 
+/**
+ * Per-session record returned by `sessions.list`. Field set mirrors
+ * upstream `TuiSessionList["sessions"][number]` in src/tui/tui-backend.ts.
+ * We only consume the title-relevant fields; everything else is ignored.
+ */
 interface SessionEntry {
   key: string;
-  title?: string;
-  agentId?: string;
-  lastActivityAt?: number;
+  displayName?: string;
+  derivedTitle?: string;
+  label?: string;
+  lastMessagePreview?: string;
+  updatedAt?: number | null;
   hasActiveRun?: boolean;
-  messageCount?: number;
 }
 
 interface SessionsListResponse {
@@ -171,17 +177,38 @@ function SessionRow({
     >
       <span className="truncate">{sessionTitle(session)}</span>
       <span className="shrink-0 text-[11px] text-muted-foreground/70">
-        {relativeAge(session.lastActivityAt)}
+        {relativeAge(session.updatedAt ?? undefined)}
       </span>
     </button>
   );
 }
 
+/**
+ * Pick the most human-readable title from a session record. Prefer the
+ * gateway-derived title (which is the first user message), then the
+ * explicit displayName/label, then trim the last message preview, then
+ * fall back to a key-derived label.
+ */
 function sessionTitle(s: SessionEntry): string {
-  if (s.title) return s.title;
-  // Heuristic on session-key shape: "agent:main:main" → "main", etc.
+  const candidate =
+    s.derivedTitle?.trim() ||
+    s.displayName?.trim() ||
+    s.label?.trim() ||
+    firstWords(s.lastMessagePreview);
+  if (candidate) return truncate(candidate, 48);
   const parts = s.key.split(":");
-  return parts[parts.length - 1] || s.key;
+  const tail = parts[parts.length - 1] || s.key;
+  if (tail === "main") return "main";
+  return truncate(tail, 12);
+}
+
+function firstWords(text: string | undefined, n = 8): string {
+  if (!text) return "";
+  return text.trim().split(/\s+/).slice(0, n).join(" ");
+}
+
+function truncate(text: string, max: number): string {
+  return text.length > max ? text.slice(0, max - 1) + "…" : text;
 }
 
 function relativeAge(ts?: number): string {
