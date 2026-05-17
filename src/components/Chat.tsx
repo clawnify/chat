@@ -13,6 +13,11 @@ import { ApprovalCard } from "@/components/ApprovalCard";
 import { AssistantMessage } from "@/components/AssistantMessage";
 import { SlashMenu, filterCommands } from "@/components/SlashMenu";
 
+// Default session key for the gateway's main agent. Matches upstream's
+// canonical name (docs/openclaw/cli/acp.md and ...plugins/webhooks.md). A
+// future stage can add a session picker; for now we hard-code the default.
+const SESSION_KEY = "agent:main:main";
+
 export function Chat({ gw }: { gw: GatewayWs }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([]);
@@ -25,7 +30,10 @@ export function Chat({ gw }: { gw: GatewayWs }) {
 
   const fetchHistory = useCallback(async () => {
     try {
-      const payload = await gw.request("chat.history", { limit: 100 });
+      const payload = await gw.request("chat.history", {
+        sessionKey: SESSION_KEY,
+        limit: 100,
+      });
       const parsed = parseHistory(payload);
       setMessages(parsed);
 
@@ -215,6 +223,7 @@ export function Chat({ gw }: { gw: GatewayWs }) {
 
     try {
       await gw.request("chat.send", {
+        sessionKey: SESSION_KEY,
         text,
         idempotencyKey: `clw-${Date.now()}`,
       });
@@ -229,6 +238,7 @@ export function Chat({ gw }: { gw: GatewayWs }) {
       setInput("");
       if (cmd.name === "/stop") return abort();
       gw.request("chat.send", {
+        sessionKey: SESSION_KEY,
         text: cmd.name,
         idempotencyKey: `clw-${Date.now()}`,
       }).catch((err) =>
@@ -242,7 +252,7 @@ export function Chat({ gw }: { gw: GatewayWs }) {
 
   async function abort() {
     try {
-      await gw.request("chat.abort", {});
+      await gw.request("chat.abort", { sessionKey: SESSION_KEY });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
