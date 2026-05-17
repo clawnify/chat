@@ -27,6 +27,7 @@ export function Chat({ gw }: { gw: GatewayWs }) {
   const [error, setError] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const streamingIdxRef = useRef<number | null>(null);
+  const currentRunIdRef = useRef<string | null>(null);
 
   const fetchHistory = useCallback(async () => {
     try {
@@ -221,11 +222,13 @@ export function Chat({ gw }: { gw: GatewayWs }) {
       { role: "user", content: text, optimistic: true },
     ]);
 
+    const runId = crypto.randomUUID();
+    currentRunIdRef.current = runId;
     try {
       await gw.request("chat.send", {
         sessionKey: SESSION_KEY,
-        text,
-        idempotencyKey: `clw-${Date.now()}`,
+        message: text,
+        idempotencyKey: runId,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -237,10 +240,12 @@ export function Chat({ gw }: { gw: GatewayWs }) {
     if (cmd.autoSend) {
       setInput("");
       if (cmd.name === "/stop") return abort();
+      const runId = crypto.randomUUID();
+      currentRunIdRef.current = runId;
       gw.request("chat.send", {
         sessionKey: SESSION_KEY,
-        text: cmd.name,
-        idempotencyKey: `clw-${Date.now()}`,
+        message: cmd.name,
+        idempotencyKey: runId,
       }).catch((err) =>
         setError(err instanceof Error ? err.message : String(err)),
       );
@@ -251,8 +256,13 @@ export function Chat({ gw }: { gw: GatewayWs }) {
   }
 
   async function abort() {
+    const runId = currentRunIdRef.current;
     try {
-      await gw.request("chat.abort", { sessionKey: SESSION_KEY });
+      // Per upstream gateway-chat.ts both sessionKey AND runId are required.
+      await gw.request("chat.abort", {
+        sessionKey: SESSION_KEY,
+        ...(runId ? { runId } : {}),
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
