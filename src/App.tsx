@@ -8,17 +8,18 @@ import {
   saveToken,
   type DetectedGateway,
 } from "@/lib/config";
-import { Settings, type SettingsSection } from "@/components/Settings";
+import {
+  AboutDialog,
+  AgentsDialog,
+  AppearanceDialog,
+  ConnectionDialog,
+  ConnectionForm,
+  ProvidersDialog,
+  type SettingsSection,
+} from "@/components/Settings";
 import { Chat } from "@/components/Chat";
 import { DetectedGatewayCard } from "@/components/DetectedGatewayCard";
 import { SessionsSidebar } from "@/components/SessionsSidebar";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
 import {
   parseSessionFromPath,
   pushSessionPath,
@@ -37,37 +38,13 @@ export function App() {
   const [gatewayUrl, setGatewayUrl] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [conn, setConn] = useState<ConnState>({ kind: "idle" });
-  const [showSettings, setShowSettings] = useState(false);
-  const [settingsSection, setSettingsSection] =
-    useState<SettingsSection>("connection");
+  const [openDialog, setOpenDialog] = useState<SettingsSection | null>(null);
   const [detected, setDetected] = useState<DetectedGateway | null>(null);
   const [detectionResolved, setDetectionResolved] = useState(false);
   const [sessionKey, setSessionKey] = useState<string>(
     () => parseSessionFromPath(window.location.pathname) ?? DEFAULT_SESSION_KEY,
   );
   const gwRef = useRef<GatewayWs | null>(null);
-
-  // Sync sessionKey ↔ URL path. pushState on programmatic changes,
-  // popstate on browser back/forward so the chat follows.
-  useEffect(() => {
-    pushSessionPath(sessionKey);
-  }, [sessionKey]);
-  useEffect(() => {
-    const onPop = () => {
-      const fromPath = parseSessionFromPath(window.location.pathname);
-      setSessionKey(fromPath ?? DEFAULT_SESSION_KEY);
-    };
-    window.addEventListener("popstate", onPop);
-    // Make sure the initial path matches whatever sessionKey we picked.
-    replaceSessionPath(sessionKey);
-    return () => window.removeEventListener("popstate", onPop);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  function openSettingsAt(section: SettingsSection) {
-    setSettingsSection(section);
-    setShowSettings(true);
-  }
 
   useEffect(() => {
     const cfg = bootstrapConfig();
@@ -83,7 +60,7 @@ export function App() {
       if (res && res.detected && res.hasToken && res.token) {
         setDetected(res);
       } else {
-        setShowSettings(true);
+        setOpenDialog("connection");
       }
       setDetectionResolved(true);
     });
@@ -118,38 +95,49 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gatewayUrl, token]);
 
+  // Session ↔ URL bridge.
+  useEffect(() => {
+    pushSessionPath(sessionKey);
+  }, [sessionKey]);
+  useEffect(() => {
+    const onPop = () => {
+      const fromPath = parseSessionFromPath(window.location.pathname);
+      setSessionKey(fromPath ?? DEFAULT_SESSION_KEY);
+    };
+    window.addEventListener("popstate", onPop);
+    replaceSessionPath(sessionKey);
+    return () => window.removeEventListener("popstate", onPop);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function handleSave(nextUrl: string, nextToken: string, persistToken: boolean) {
     saveGatewayUrl(nextUrl);
     if (persistToken) saveToken(nextToken);
     else clearToken();
     setGatewayUrl(nextUrl);
     setToken(nextToken);
-    setShowSettings(false);
+    setOpenDialog(null);
     setConn({ kind: "idle" });
   }
 
   function handleNewSession() {
-    // Generate a fresh sessionKey under the main agent. OpenClaw materializes
-    // the session lazily on the first chat.send to a new key (see
-    // docs/openclaw/gateway/PROTOCOL.md and the scope-key convention).
     const shortId = crypto.randomUUID().slice(0, 8);
-    const newKey = `agent:main:scratch:${shortId}`;
-    setSessionKey(newKey);
+    setSessionKey(`agent:main:scratch:${shortId}`);
   }
 
-  // Setup-time settings (no gateway yet) — render Settings inline since
-  // there's nothing else on screen.
   const isSetupTime = !gatewayUrl || !token || conn.kind !== "connected";
-  if (showSettings && isSetupTime) {
+
+  // Setup-time (no gateway yet): show the connection form inline as the
+  // whole screen — there's no chat layout to overlay against.
+  if (openDialog === "connection" && isSetupTime) {
     return (
-      <div className="h-full flex flex-col mx-auto max-w-2xl">
-        <Settings
-          gw={null}
-          initialSection="connection"
+      <div className="h-full flex flex-col mx-auto max-w-2xl p-8">
+        <h1 className="text-base font-medium mb-4">Connect to a gateway</h1>
+        <ConnectionForm
           initialUrl={gatewayUrl ?? ""}
           initialToken={token ?? ""}
           onSave={handleSave}
-          onCancel={() => setShowSettings(false)}
+          onCancel={() => setOpenDialog(null)}
         />
       </div>
     );
@@ -167,7 +155,7 @@ export function App() {
         }}
         onUseSettings={() => {
           setDetected(null);
-          setShowSettings(true);
+          setOpenDialog("connection");
         }}
       />
     );
@@ -179,12 +167,10 @@ export function App() {
 
   if (conn.kind !== "connected" || !gwRef.current) {
     return (
-      <ConnStatus state={conn} onOpenSettings={() => setShowSettings(true)} />
+      <ConnStatus state={conn} onOpenSettings={() => setOpenDialog("connection")} />
     );
   }
 
-  // Connected — two-column layout matches the reference design. Settings
-  // opens as a shadcn Dialog over the layout.
   return (
     <div className="h-full flex">
       <SessionsSidebar
@@ -192,29 +178,36 @@ export function App() {
         activeKey={sessionKey}
         onSelect={setSessionKey}
         onNew={handleNewSession}
-        onOpenSettings={openSettingsAt}
+        onOpenSection={setOpenDialog}
         connState={conn.kind}
       />
       <Chat gw={gwRef.current} sessionKey={sessionKey} />
 
-      <Dialog open={showSettings} onOpenChange={setShowSettings}>
-        <DialogContent className="max-w-3xl p-0 gap-0 overflow-hidden">
-          <DialogHeader className="px-6 pt-5 pb-3">
-            <DialogTitle>Settings</DialogTitle>
-            <DialogDescription className="sr-only">
-              Configure the connection, appearance, and other preferences.
-            </DialogDescription>
-          </DialogHeader>
-          <Settings
-            gw={gwRef.current}
-            initialSection={settingsSection}
-            initialUrl={gatewayUrl ?? ""}
-            initialToken={token ?? ""}
-            onSave={handleSave}
-            onCancel={() => setShowSettings(false)}
-          />
-        </DialogContent>
-      </Dialog>
+      <ConnectionDialog
+        open={openDialog === "connection"}
+        onOpenChange={(v) => setOpenDialog(v ? "connection" : null)}
+        initialUrl={gatewayUrl ?? ""}
+        initialToken={token ?? ""}
+        onSave={handleSave}
+      />
+      <AgentsDialog
+        open={openDialog === "agents"}
+        onOpenChange={(v) => setOpenDialog(v ? "agents" : null)}
+        gw={gwRef.current}
+      />
+      <ProvidersDialog
+        open={openDialog === "providers"}
+        onOpenChange={(v) => setOpenDialog(v ? "providers" : null)}
+        gw={gwRef.current}
+      />
+      <AppearanceDialog
+        open={openDialog === "appearance"}
+        onOpenChange={(v) => setOpenDialog(v ? "appearance" : null)}
+      />
+      <AboutDialog
+        open={openDialog === "about"}
+        onOpenChange={(v) => setOpenDialog(v ? "about" : null)}
+      />
     </div>
   );
 }
@@ -268,7 +261,8 @@ function ConnStatus({
           <p className="text-sm text-muted-foreground max-w-md">
             This browser hasn’t been paired with the gateway. On the gateway
             host run <code className="px-1 bg-muted rounded">openclaw devices list</code>{" "}
-            then <code className="px-1 bg-muted rounded">openclaw devices approve &lt;id&gt;</code>.
+            then{" "}
+            <code className="px-1 bg-muted rounded">openclaw devices approve &lt;id&gt;</code>.
           </p>
         )}
         <button

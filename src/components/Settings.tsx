@@ -1,9 +1,18 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Bot, Info, KeyRound, Monitor, Moon, Plug, Sun } from "lucide-react";
+import { Monitor, Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme, type Theme } from "@/lib/theme";
 import type { GatewayWs } from "@/lib/gateway-ws";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
+/** Symbolic identifiers shared with the sidebar so the popover can drive
+ *  which focused dialog opens. */
 export type SettingsSection =
   | "connection"
   | "agents"
@@ -11,86 +20,47 @@ export type SettingsSection =
   | "appearance"
   | "about";
 
-export function Settings({
-  gw,
-  initialSection = "connection",
-  initialUrl,
-  initialToken,
-  onSave,
-  onCancel,
-}: {
-  gw: GatewayWs | null;
-  initialSection?: SettingsSection;
-  initialUrl: string;
-  initialToken: string;
-  onSave: (url: string, token: string, persistToken: boolean) => void;
-  onCancel: () => void;
-}) {
-  const [section, setSection] = useState<SettingsSection>(initialSection);
-  useEffect(() => setSection(initialSection), [initialSection]);
-
-  return (
-    <div className="flex h-[480px] -mx-6 -mb-6 -mt-2 border-t">
-      <SettingsSidebar section={section} onChange={setSection} />
-      <div className="flex-1 overflow-y-auto p-6">
-        {section === "connection" && (
-          <ConnectionSection
-            initialUrl={initialUrl}
-            initialToken={initialToken}
-            onSave={onSave}
-            onCancel={onCancel}
-          />
-        )}
-        {section === "agents" && <AgentsSection gw={gw} />}
-        {section === "providers" && <ProvidersSection gw={gw} />}
-        {section === "appearance" && <AppearanceSection />}
-        {section === "about" && <AboutSection />}
-      </div>
-    </div>
-  );
-}
-
-function SettingsSidebar({
-  section,
-  onChange,
-}: {
-  section: SettingsSection;
-  onChange: (s: SettingsSection) => void;
-}) {
-  const items: { id: SettingsSection; label: string; icon: React.ReactNode }[] = [
-    { id: "connection", label: "Connection", icon: <Plug size={14} /> },
-    { id: "agents", label: "Agents", icon: <Bot size={14} /> },
-    { id: "providers", label: "Model Providers", icon: <KeyRound size={14} /> },
-    { id: "appearance", label: "Appearance", icon: <Monitor size={14} /> },
-    { id: "about", label: "About", icon: <Info size={14} /> },
-  ];
-  return (
-    <nav className="w-44 shrink-0 border-r p-2 flex flex-col gap-0.5">
-      {items.map((it) => (
-        <button
-          key={it.id}
-          type="button"
-          onClick={() => onChange(it.id)}
-          className={cn(
-            "flex items-center gap-2 px-3 py-2 rounded-md text-sm text-left transition-colors",
-            section === it.id
-              ? "bg-muted text-foreground"
-              : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-          )}
-        >
-          {it.icon}
-          {it.label}
-        </button>
-      ))}
-    </nav>
-  );
-}
-
 const inputClass =
   "w-full bg-background border border-input rounded-md px-3 py-2 text-sm font-mono " +
   "placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring";
 
-function ConnectionSection({
+// ---------- Connection ----------
+
+export function ConnectionDialog({
+  open,
+  onOpenChange,
+  initialUrl,
+  initialToken,
+  onSave,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  initialUrl: string;
+  initialToken: string;
+  onSave: (url: string, token: string, persistToken: boolean) => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Connection</DialogTitle>
+          <DialogDescription>
+            OpenClaw gateway URL and shared-secret token.
+          </DialogDescription>
+        </DialogHeader>
+        <ConnectionForm
+          initialUrl={initialUrl}
+          initialToken={initialToken}
+          onSave={onSave}
+          onCancel={() => onOpenChange(false)}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Standalone form usable outside the dialog (setup-time, before a gateway). */
+export function ConnectionForm({
   initialUrl,
   initialToken,
   onSave,
@@ -113,11 +83,6 @@ function ConnectionSection({
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-5">
-      <SectionHeader
-        title="Connection"
-        description="OpenClaw gateway URL and shared-secret token."
-      />
-
       <Field
         label="Gateway URL"
         hint={
@@ -192,6 +157,8 @@ function ConnectionSection({
   );
 }
 
+// ---------- Agents ----------
+
 interface AgentEntry {
   id?: string;
   name?: string;
@@ -199,16 +166,22 @@ interface AgentEntry {
   thinking?: string;
 }
 
-function AgentsSection({ gw }: { gw: GatewayWs | null }) {
+export function AgentsDialog({
+  open,
+  onOpenChange,
+  gw,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  gw: GatewayWs | null;
+}) {
   const [agents, setAgents] = useState<AgentEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!gw) {
-      setLoading(false);
-      return;
-    }
+    if (!open || !gw) return;
+    setLoading(true);
     let cancelled = false;
     gw.request<{ agents?: AgentEntry[] }>("agents.list", {})
       .then((res) => {
@@ -224,64 +197,81 @@ function AgentsSection({ gw }: { gw: GatewayWs | null }) {
     return () => {
       cancelled = true;
     };
-  }, [gw]);
+  }, [open, gw]);
 
   return (
-    <div className="flex flex-col gap-5">
-      <SectionHeader
-        title="Agents"
-        description="Registered agents and the model each uses. Read-only — manage agents with `openclaw agents` in your terminal."
-      />
-      {loading && <p className="text-sm text-muted-foreground">Loading…</p>}
-      {error && <p className="text-sm text-destructive">{error}</p>}
-      {!loading && !error && agents.length === 0 && (
-        <p className="text-sm text-muted-foreground">No agents reported.</p>
-      )}
-      {!loading && agents.length > 0 && (
-        <ul className="flex flex-col gap-2">
-          {agents.map((a, i) => (
-            <li
-              key={a.id ?? i}
-              className="border rounded-lg px-3 py-2.5 flex flex-col gap-1"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-medium text-sm">{a.name ?? a.id ?? "agent"}</span>
-                {a.thinking && (
-                  <span className="text-[11px] text-muted-foreground">
-                    thinking: {a.thinking}
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Agents</DialogTitle>
+          <DialogDescription>
+            Registered agents and the model each uses. Read-only — manage with{" "}
+            <code className="px-1 bg-muted rounded text-xs">openclaw agents</code>.
+          </DialogDescription>
+        </DialogHeader>
+        {loading && <p className="text-sm text-muted-foreground">Loading…</p>}
+        {error && <p className="text-sm text-destructive">{error}</p>}
+        {!loading && !error && agents.length === 0 && (
+          <p className="text-sm text-muted-foreground">No agents reported.</p>
+        )}
+        {!loading && agents.length > 0 && (
+          <ul className="flex flex-col gap-2 max-h-96 overflow-y-auto">
+            {agents.map((a, i) => (
+              <li
+                key={a.id ?? i}
+                className="border rounded-lg px-3 py-2.5 flex flex-col gap-1"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium text-sm">
+                    {a.name ?? a.id ?? "agent"}
                   </span>
+                  {a.thinking && (
+                    <span className="text-[11px] text-muted-foreground">
+                      thinking: {a.thinking}
+                    </span>
+                  )}
+                </div>
+                {a.id && a.id !== (a.name ?? "") && (
+                  <code className="text-xs text-muted-foreground">{a.id}</code>
                 )}
-              </div>
-              {a.id && a.id !== (a.name ?? "") && (
-                <code className="text-xs text-muted-foreground">{a.id}</code>
-              )}
-              {a.model?.primary && (
-                <code className="text-xs text-muted-foreground">
-                  model: {a.model.primary}
-                </code>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+                {a.model?.primary && (
+                  <code className="text-xs text-muted-foreground">
+                    model: {a.model.primary}
+                  </code>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
+
+// ---------- Model Providers ----------
 
 interface AuthProfilesResponse {
   raw?: string;
 }
 
-function ProvidersSection({ gw }: { gw: GatewayWs | null }) {
-  const [providers, setProviders] = useState<{ id: string; provider: string; mode?: string }[]>([]);
+export function ProvidersDialog({
+  open,
+  onOpenChange,
+  gw,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  gw: GatewayWs | null;
+}) {
+  const [providers, setProviders] = useState<
+    { id: string; provider: string; mode?: string }[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!gw) {
-      setLoading(false);
-      return;
-    }
+    if (!open || !gw) return;
+    setLoading(true);
     let cancelled = false;
     gw.request<AuthProfilesResponse>("config.get", {})
       .then((res) => {
@@ -292,12 +282,13 @@ function ProvidersSection({ gw }: { gw: GatewayWs | null }) {
             string,
             { provider?: string; mode?: string }
           >;
-          const list = Object.entries(profiles).map(([id, v]) => ({
-            id,
-            provider: v.provider ?? id.split(":")[0] ?? "",
-            mode: v.mode,
-          }));
-          setProviders(list);
+          setProviders(
+            Object.entries(profiles).map(([id, v]) => ({
+              id,
+              provider: v.provider ?? id.split(":")[0] ?? "",
+              mode: v.mode,
+            })),
+          );
         } catch {
           setProviders([]);
         }
@@ -311,43 +302,57 @@ function ProvidersSection({ gw }: { gw: GatewayWs | null }) {
     return () => {
       cancelled = true;
     };
-  }, [gw]);
+  }, [open, gw]);
 
   return (
-    <div className="flex flex-col gap-5">
-      <SectionHeader
-        title="Model Providers"
-        description="Auth profiles known to your gateway. Read-only — run `openclaw configure` or `openclaw models auth …` to add or rotate keys."
-      />
-      {loading && <p className="text-sm text-muted-foreground">Loading…</p>}
-      {error && <p className="text-sm text-destructive">{error}</p>}
-      {!loading && !error && providers.length === 0 && (
-        <p className="text-sm text-muted-foreground">
-          No provider profiles configured yet. Run{" "}
-          <code className="px-1 bg-muted rounded">openclaw configure</code>{" "}
-          to add one.
-        </p>
-      )}
-      {!loading && providers.length > 0 && (
-        <ul className="flex flex-col gap-2">
-          {providers.map((p) => (
-            <li
-              key={p.id}
-              className="border rounded-lg px-3 py-2.5 flex items-center justify-between gap-2"
-            >
-              <span className="font-medium text-sm capitalize">{p.provider}</span>
-              <code className="text-[11px] text-muted-foreground">
-                {p.mode ?? "configured"} · {p.id}
-              </code>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Model Providers</DialogTitle>
+          <DialogDescription>
+            Auth profiles known to your gateway. Read-only — run{" "}
+            <code className="px-1 bg-muted rounded text-xs">openclaw configure</code>{" "}
+            to add or rotate keys.
+          </DialogDescription>
+        </DialogHeader>
+        {loading && <p className="text-sm text-muted-foreground">Loading…</p>}
+        {error && <p className="text-sm text-destructive">{error}</p>}
+        {!loading && !error && providers.length === 0 && (
+          <p className="text-sm text-muted-foreground">
+            No provider profiles configured yet.
+          </p>
+        )}
+        {!loading && providers.length > 0 && (
+          <ul className="flex flex-col gap-2">
+            {providers.map((p) => (
+              <li
+                key={p.id}
+                className="border rounded-lg px-3 py-2.5 flex items-center justify-between gap-2"
+              >
+                <span className="font-medium text-sm capitalize">
+                  {p.provider}
+                </span>
+                <code className="text-[11px] text-muted-foreground">
+                  {p.mode ?? "configured"} · {p.id}
+                </code>
+              </li>
+            ))}
+          </ul>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
-function AppearanceSection() {
+// ---------- Appearance ----------
+
+export function AppearanceDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}) {
   const [theme, setTheme] = useTheme();
   const options: { id: Theme; label: string; icon: React.ReactNode }[] = [
     { id: "system", label: "System", icon: <Monitor size={16} /> },
@@ -355,102 +360,105 @@ function AppearanceSection() {
     { id: "dark", label: "Dark", icon: <Moon size={16} /> },
   ];
   return (
-    <div className="flex flex-col gap-5">
-      <SectionHeader
-        title="Appearance"
-        description="Choose how the app looks. System follows your OS preference."
-      />
-      <div className="grid grid-cols-3 gap-2">
-        {options.map((opt) => (
-          <button
-            key={opt.id}
-            type="button"
-            onClick={() => setTheme(opt.id)}
-            className={cn(
-              "flex flex-col items-center justify-center gap-2 py-4 rounded-lg border text-sm transition-colors",
-              theme === opt.id
-                ? "border-ring bg-muted text-foreground"
-                : "border-border hover:bg-muted/60 text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {opt.icon}
-            {opt.label}
-          </button>
-        ))}
-      </div>
-    </div>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Appearance</DialogTitle>
+          <DialogDescription>
+            Choose how the app looks. System follows your OS preference.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid grid-cols-3 gap-2">
+          {options.map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => setTheme(opt.id)}
+              className={cn(
+                "flex flex-col items-center justify-center gap-2 py-4 rounded-lg border text-sm transition-colors",
+                theme === opt.id
+                  ? "border-ring bg-muted text-foreground"
+                  : "border-border hover:bg-muted/60 text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {opt.icon}
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
-function AboutSection() {
-  return (
-    <div className="flex flex-col gap-4">
-      <SectionHeader
-        title="About"
-        description="Open-source chat UI for OpenClaw gateways."
-      />
-      <dl className="grid grid-cols-[120px_1fr] gap-y-2 gap-x-4 text-sm">
-        <dt className="text-muted-foreground">Package</dt>
-        <dd>
-          <code className="px-1.5 py-0.5 rounded bg-muted">@clawnify/chat</code>
-        </dd>
-        <dt className="text-muted-foreground">Source</dt>
-        <dd>
-          <a
-            href="https://github.com/clawnify/chat"
-            target="_blank"
-            rel="noreferrer"
-            className="text-foreground underline underline-offset-2"
-          >
-            github.com/clawnify/chat
-          </a>
-        </dd>
-        <dt className="text-muted-foreground">Protocol</dt>
-        <dd>
-          OpenClaw Gateway WebSocket (v4) —{" "}
-          <a
-            href="https://docs.openclaw.ai"
-            target="_blank"
-            rel="noreferrer"
-            className="text-foreground underline underline-offset-2"
-          >
-            docs.openclaw.ai
-          </a>
-        </dd>
-        <dt className="text-muted-foreground">License</dt>
-        <dd>MIT</dd>
-      </dl>
-      <p className="text-xs text-muted-foreground pt-4">
-        clawnify/chat is an independent client for the OpenClaw protocol.
-        Built and maintained by{" "}
-        <a
-          href="https://clawnify.com"
-          target="_blank"
-          rel="noreferrer"
-          className="underline underline-offset-2"
-        >
-          Clawnify
-        </a>
-        ; shared with the OpenClaw community.
-      </p>
-    </div>
-  );
-}
+// ---------- About ----------
 
-function SectionHeader({
-  title,
-  description,
+export function AboutDialog({
+  open,
+  onOpenChange,
 }: {
-  title: string;
-  description: string;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
 }) {
   return (
-    <div className="flex flex-col gap-1">
-      <h2 className="text-base font-medium">{title}</h2>
-      <p className="text-sm text-muted-foreground">{description}</p>
-    </div>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>About</DialogTitle>
+          <DialogDescription>
+            Open-source chat UI for OpenClaw gateways.
+          </DialogDescription>
+        </DialogHeader>
+        <dl className="grid grid-cols-[120px_1fr] gap-y-2 gap-x-4 text-sm">
+          <dt className="text-muted-foreground">Package</dt>
+          <dd>
+            <code className="px-1.5 py-0.5 rounded bg-muted">@clawnify/chat</code>
+          </dd>
+          <dt className="text-muted-foreground">Source</dt>
+          <dd>
+            <a
+              href="https://github.com/clawnify/chat"
+              target="_blank"
+              rel="noreferrer"
+              className="text-foreground underline underline-offset-2"
+            >
+              github.com/clawnify/chat
+            </a>
+          </dd>
+          <dt className="text-muted-foreground">Protocol</dt>
+          <dd>
+            OpenClaw Gateway WebSocket (v4) —{" "}
+            <a
+              href="https://docs.openclaw.ai"
+              target="_blank"
+              rel="noreferrer"
+              className="text-foreground underline underline-offset-2"
+            >
+              docs.openclaw.ai
+            </a>
+          </dd>
+          <dt className="text-muted-foreground">License</dt>
+          <dd>MIT</dd>
+        </dl>
+        <p className="text-xs text-muted-foreground">
+          clawnify/chat is an independent client for the OpenClaw protocol.
+          Built and maintained by{" "}
+          <a
+            href="https://clawnify.com"
+            target="_blank"
+            rel="noreferrer"
+            className="underline underline-offset-2"
+          >
+            Clawnify
+          </a>
+          ; shared with the OpenClaw community.
+        </p>
+      </DialogContent>
+    </Dialog>
   );
 }
+
+// ---------- Shared helpers ----------
 
 function Field({
   label,

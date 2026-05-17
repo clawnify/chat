@@ -4,9 +4,10 @@ import {
   Info,
   KeyRound,
   Monitor,
-  Plug,
+  Moon,
   Plus,
   Settings as SettingsIcon,
+  Sun,
 } from "lucide-react";
 import type { GatewayWs } from "@/lib/gateway-ws";
 import { cn } from "@/lib/utils";
@@ -16,6 +17,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import type { SettingsSection } from "@/components/Settings";
+import { useTheme, type Theme } from "@/lib/theme";
 
 export type ConnPillState = "idle" | "connecting" | "connected" | "error";
 
@@ -49,14 +51,14 @@ export function SessionsSidebar({
   activeKey,
   onSelect,
   onNew,
-  onOpenSettings,
+  onOpenSection,
   connState,
 }: {
   gw: GatewayWs;
   activeKey: string;
   onSelect: (key: string) => void;
   onNew: () => void;
-  onOpenSettings: (section: SettingsSection) => void;
+  onOpenSection: (section: SettingsSection) => void;
   connState: ConnPillState;
 }) {
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
@@ -112,49 +114,84 @@ export function SessionsSidebar({
       </nav>
 
       <div className="border-t px-3 py-2.5 flex items-center justify-between gap-2">
-        <Popover open={settingsMenuOpen} onOpenChange={setSettingsMenuOpen}>
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              title="Settings"
-              className="h-7 w-7 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            >
-              <SettingsIcon size={14} />
-            </button>
-          </PopoverTrigger>
-          <PopoverContent
-            align="start"
-            side="top"
-            className="w-56 p-1"
-          >
-            {SETTINGS_MENU.map((item) => (
+        <div className="flex items-center gap-1">
+          <Popover open={settingsMenuOpen} onOpenChange={setSettingsMenuOpen}>
+            <PopoverTrigger asChild>
               <button
-                key={item.id}
                 type="button"
-                onClick={() => {
-                  onOpenSettings(item.id);
-                  setSettingsMenuOpen(false);
-                }}
-                className="w-full text-left flex items-center gap-2 px-2.5 py-1.5 rounded-md text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                title="Settings"
+                className="h-7 w-7 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
               >
-                {item.icon}
-                {item.label}
+                <SettingsIcon size={14} />
               </button>
-            ))}
-          </PopoverContent>
-        </Popover>
-        <ConnPill state={connState} onClick={() => onOpenSettings("connection")} />
+            </PopoverTrigger>
+            <PopoverContent align="start" side="top" className="w-56 p-1">
+              {SETTINGS_MENU.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => {
+                    onOpenSection(item.id);
+                    setSettingsMenuOpen(false);
+                  }}
+                  className="w-full text-left flex items-center gap-2 px-2.5 py-1.5 rounded-md text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                >
+                  {item.icon}
+                  {item.label}
+                </button>
+              ))}
+            </PopoverContent>
+          </Popover>
+          <ThemeCycle />
+        </div>
+        <ConnPill state={connState} onClick={() => onOpenSection("connection")} />
       </div>
     </aside>
   );
 }
 
+/** Single button that cycles system → light → dark → system. The icon
+ *  shown is the current theme — clicking advances to the next state. */
+function ThemeCycle() {
+  const [theme, setTheme] = useTheme();
+  const order: readonly Theme[] = ["system", "light", "dark"] as const;
+
+  const icons: Record<Theme, React.ReactNode> = {
+    system: <Monitor size={14} />,
+    light: <Sun size={14} />,
+    dark: <Moon size={14} />,
+  };
+  const labels: Record<Theme, string> = {
+    system: "Theme: system (click for light)",
+    light: "Theme: light (click for dark)",
+    dark: "Theme: dark (click for system)",
+  };
+
+  function cycle() {
+    const next = order[(order.indexOf(theme) + 1) % order.length];
+    setTheme(next);
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={cycle}
+      title={labels[theme]}
+      aria-label={labels[theme]}
+      className="h-7 w-7 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+    >
+      {icons[theme]}
+    </button>
+  );
+}
+
+// Connection is intentionally NOT in this menu — the only way to open the
+// connection dialog is by clicking the status pill on the right.
 const SETTINGS_MENU: {
   id: SettingsSection;
   label: string;
   icon: React.ReactNode;
 }[] = [
-  { id: "connection", label: "Connection", icon: <Plug size={14} /> },
   { id: "agents", label: "Agents", icon: <Bot size={14} /> },
   { id: "providers", label: "Model Providers", icon: <KeyRound size={14} /> },
   { id: "appearance", label: "Appearance", icon: <Monitor size={14} /> },
