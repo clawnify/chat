@@ -113,22 +113,25 @@ function ConnPill({
   onClick: () => void;
 }) {
   const labels: Record<ConnPillState, string> = {
-    idle: "idle",
+    idle: "disconnected",
     connecting: "connecting…",
     connected: "connected",
-    error: "error",
+    error: "failed",
   };
   const tone: Record<ConnPillState, string> = {
     idle: "text-muted-foreground border-border bg-background",
-    connecting: "text-amber-600 dark:text-amber-400 border-amber-500/40 bg-amber-50 dark:bg-amber-950/30",
-    connected: "text-emerald-600 dark:text-emerald-400 border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/30",
-    error: "text-destructive border-destructive/40 bg-destructive/10",
+    connecting:
+      "text-amber-600 dark:text-amber-400 border-amber-500/40 bg-amber-50 dark:bg-amber-950/30",
+    connected:
+      "text-emerald-600 dark:text-emerald-400 border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/30",
+    error:
+      "text-red-600 dark:text-red-400 border-red-300 dark:border-red-500/40 bg-red-50 dark:bg-red-950/30",
   };
   const dotTone: Record<ConnPillState, string> = {
     idle: "bg-muted-foreground/60",
     connecting: "bg-amber-500 animate-pulse",
     connected: "bg-emerald-500",
-    error: "bg-destructive",
+    error: "bg-red-500",
   };
   return (
     <button
