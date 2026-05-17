@@ -4,7 +4,7 @@
  * prefix maps to the default session.
  */
 
-const PREFIX = "/s/";
+const PREFIX = "/chat/";
 
 export function parseSessionFromPath(pathname: string): string | null {
   if (!pathname.startsWith(PREFIX)) return null;

@@ -86,7 +86,7 @@ export function ActionIcon({
   if (toolName === "memory_search") return <Brain size={size} />;
   if (toolName === "read") return <BookOpen size={size} />;
   if (toolName === "write") return <Pencil size={size} />;
-  return <span className="action-textname">{toolName}</span>;
+  return <span className="font-mono text-[10px] font-medium leading-none">{toolName}</span>;
 }
 
 /** Concise label for an action. Used in expand-list and tooltips. */

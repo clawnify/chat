@@ -45,7 +45,7 @@ export function ActionGroup({
               key={j}
               title={actionLabel(a.toolName ?? "tool", a.content)}
               className={cn(
-                "inline-flex items-center gap-1 px-2 py-1 rounded-full border bg-muted/50 text-muted-foreground",
+                "inline-flex items-center gap-1 px-2 py-0.5 rounded-full border bg-muted/50 text-muted-foreground text-xs leading-tight",
                 a.toolError && "border-destructive/40 text-destructive bg-destructive/5",
               )}
             >

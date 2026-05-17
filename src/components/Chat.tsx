@@ -590,12 +590,13 @@ function MessageRow({ msg }: { msg: Message }) {
   return (
     <div
       className={cn(
-        "rounded-2xl px-4 py-2 text-sm",
+        "text-sm",
         isUser
-          ? "self-end max-w-[80%] bg-muted text-foreground"
+          ? "self-end max-w-[80%] bg-muted rounded-2xl px-4 py-2 text-foreground"
           : "self-start max-w-full w-full bg-transparent text-foreground",
         msg.optimistic && "opacity-60",
-        msg.errorType && "border border-destructive text-destructive bg-destructive/5",
+        msg.errorType &&
+          "border border-destructive text-destructive bg-destructive/5 rounded-2xl px-4 py-2",
       )}
     >
       {msg.role === "assistant" ? (
