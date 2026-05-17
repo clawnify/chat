@@ -154,7 +154,7 @@ export function ChatHeader({
   }
 
   return (
-    <header className="px-4 py-3 border-b">
+    <header className="px-4 py-3">
       <Popover open={menuOpen} onOpenChange={setMenuOpen}>
         <PopoverTrigger asChild>
           <button
